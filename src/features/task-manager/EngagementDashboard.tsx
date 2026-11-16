@@ -51,7 +51,8 @@ export function daysBetween(from: string, to: string): number {
 type MetricKey =
   | 'activeMinutes' | 'inUsePct' | 'daysActive' | 'avgActivePerDay' | 'sessions' | 'sessionAvg'
   | 'filesUploaded' | 'pagesUploaded' | 'filesPerActiveHour' | 'tasksPerActiveHour' | 'journeyTasksWorked'
-  | 'tasksCompleted' | 'onTimePct' | 'badScanPct' | 'reviewsDone';
+  | 'tasksCompleted' | 'onTimePct' | 'badScanPct' | 'reviewsDone'
+  | 'productivePct' | 'activeNoOutputMinutes' | 'clickingAroundBlocks';
 
 type Metric = { key: MetricKey; label: string; higherIsBetter: boolean; value: (c: EngagementCell) => number | null; text: (n: number) => string };
 
@@ -61,6 +62,9 @@ const num = (n: number) => String(n);
 export const METRICS: Metric[] = [
   { key: 'activeMinutes', label: 'Active time', higherIsBetter: true, value: (c) => c.activeMinutes, text: minutesText },
   { key: 'inUsePct', label: 'In use (active ÷ open)', higherIsBetter: true, value: (c) => c.efficacy.inUsePct, text: pct },
+  { key: 'productivePct', label: 'Productive (active followed by output)', higherIsBetter: true, value: (c) => c.efficacy.productivePct ?? null, text: pct },
+  { key: 'activeNoOutputMinutes', label: 'Active, no output', higherIsBetter: false, value: (c) => c.activeNoOutputMinutes ?? null, text: minutesText },
+  { key: 'clickingAroundBlocks', label: 'Clicking around (20-minute blocks)', higherIsBetter: false, value: (c) => c.clickingAroundBlocks ?? null, text: num },
   { key: 'daysActive', label: 'Days active', higherIsBetter: true, value: (c) => c.daysActive, text: num },
   { key: 'avgActivePerDay', label: 'Active time per day worked', higherIsBetter: true, value: (c) => c.efficacy.avgActiveMinutesPerDayActive, text: minutesText },
   { key: 'sessions', label: 'Sessions', higherIsBetter: true, value: (c) => c.sessions, text: num },
@@ -110,6 +114,8 @@ function CellRow({ label, cell, signIns }: { label: ReactNode; cell: EngagementC
       <td>{minutesText(cell.activeMinutes)}</td>
       <td className="p2w-muted">{sourcesText(cell.activeMinutesBySource, minutesText)}</td>
       <td className={e.inUsePct !== null && e.inUsePct < 50 ? 'tm-warn' : ''}>{show(e.inUsePct, pct)}</td>
+      <td className={productiveWarn(cell) ? 'tm-warn' : ''}>{productiveText(cell)}</td>
+      <td className={cell.clickingAroundBlocks ? 'tm-warn' : ''}>{show(cell.clickingAroundBlocks)}</td>
       <td>{cell.daysActive}<span className="p2w-muted"> / {cell.workingDays}</span></td>
       <td>{show(e.avgActiveMinutesPerDayActive, minutesText)}</td>
       <td>{sessionText(cell)}</td>
@@ -125,6 +131,19 @@ function CellRow({ label, cell, signIns }: { label: ReactNode; cell: EngagementC
       <td>{cell.reviewsDone}</td>
     </>
   );
+}
+
+/** "62% · 3 h 10 m": productive share and minutes (2026-11-16); '—' with no minute detail. */
+function productiveText(c: EngagementCell): string {
+  const p = c.efficacy.productivePct;
+  if (p === null || p === undefined) return '—';
+  return `${p}% · ${minutesText(c.productiveMinutes ?? 0)}`;
+}
+
+/** Under 60% of active time followed by output is flagged. */
+function productiveWarn(c: EngagementCell): boolean {
+  const p = c.efficacy.productivePct;
+  return p !== null && p !== undefined && p < 60;
 }
 
 function signInText(login?: LoginPerson): ReactNode {
@@ -251,6 +270,9 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                     <th>Used on</th><th>Files</th><th title="Journey tasks worked plus Task Manager tasks done">Tasks</th>
                     <th title={`On ${range.to}: the longest stretch with no file uploaded, task acted on or value saved`}>Longest with no output</th>
                     <th title={`On ${range.to}: 20-minute blocks that were active with nothing saved`}>Blocks active, no output</th>
+                    <th title={`Active minutes followed by output within ${report.data.outputWindowMinutes ?? 20} minutes, over the dates chosen`}>Productive</th>
+                    <th title={`Over the dates chosen: active minutes with no output after them`}>Active, no output</th>
+                    <th title={`Over the dates chosen: 20-minute blocks with no output and more than ${report.data.hopScreenChanges ?? 10} screen changes`}>Clicking around</th>
                     <th />
                   </tr>
                 </thead>
@@ -273,10 +295,13 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                           return (
                             <>
                               <td>{d?.longestNoOutputMinutes != null ? `${minutesText(d.longestNoOutputMinutes)} (${d.longestNoOutputFrom}–${d.longestNoOutputTo})` : '—'}</td>
-                              <td>{d?.blockCounts ? d.blockCounts.ACTIVE_NO_OUTPUT : '—'}</td>
+                              <td>{d?.blockCounts ? (d.blockCounts.ACTIVE_NO_OUTPUT ?? 0) + (d.blockCounts.CLICKING_AROUND ?? 0) : '—'}</td>
                             </>
                           );
                         })()}
+                        <td className={productiveWarn(t) ? 'tm-warn' : ''}>{productiveText(t)}</td>
+                        <td>{t.activeNoOutputMinutes !== undefined && t.efficacy.productivePct != null ? minutesText(t.activeNoOutputMinutes) : '—'}</td>
+                        <td className={t.clickingAroundBlocks ? 'tm-warn' : ''}>{show(t.clickingAroundBlocks)}</td>
                         <td><button type="button" className="p2w-button p2w-button--ghost" onClick={() => setDayOf(p.actorId)}>Day detail</button></td>
                       </tr>
                     );
@@ -332,6 +357,8 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                     <th title="App visible and used">Active</th>
                     <th title="Where the active time was spent: a computer's browser, a phone's browser, or the Android / iOS app">Used on</th>
                     <th title="Active as a share of the time the app was open">In use</th>
+                    <th title={`Active minutes followed by output (a file, a saved value, a task action, a review) within ${report.data.outputWindowMinutes ?? 20} minutes`}>Productive</th>
+                    <th title={`20-minute blocks with no output and more than ${report.data.hopScreenChanges ?? 10} screen changes`}>Clicking around</th>
                     <th title="Days with any activity, of working days (Mon–Sat)">Days active</th>
                     <th>Active per day worked</th>
                     <th title={`A new session starts after a break of ${report.data.sessionGapMinutes} minutes or more`}>Sessions · min / avg / max</th>

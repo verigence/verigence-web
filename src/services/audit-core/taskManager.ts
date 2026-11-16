@@ -318,6 +318,8 @@ export type EngagementEfficacy = {
   tasksPerActiveHour: number | null;
   onTimePct: number | null;
   badScanPct: number | null;
+  /** Active time followed by output within the output window (2026-11-16); days with minute detail only. */
+  productivePct?: number | null;
 };
 
 export type EngagementCell = {
@@ -331,6 +333,14 @@ export type EngagementCell = {
   journeyTasksWorked: number; taskActions: number;
   tasksAssigned: number; tasksCompleted: number; tasksCompletedOnTime: number; sendBacksReceived: number;
   reviewsDone: number;
+  /**
+   * Days with minute detail (2026-11-16): active minutes there, how many were followed by output within
+   * the output window, the rest, and the 20-minute blocks of clicking around. Absent from older servers.
+   */
+  detailActiveMinutes?: number;
+  productiveMinutes?: number;
+  activeNoOutputMinutes?: number;
+  clickingAroundBlocks?: number;
   efficacy: EngagementEfficacy;
 };
 
@@ -348,13 +358,16 @@ export type EngagementPerson = {
   days?: EngagementDay[];
 };
 
-export type BlockState = 'WORKING' | 'ACTIVE_NO_OUTPUT' | 'IDLE' | 'AWAY';
+/** CLICKING_AROUND (2026-11-16): no output, active, and more screen changes than the SuperAdmin setting. */
+export type BlockState = 'WORKING' | 'CLICKING_AROUND' | 'ACTIVE_NO_OUTPUT' | 'IDLE' | 'AWAY';
 
 export type EngagementDay = {
   day: string; activeMinutes: number; firstActiveAtUtc: string | null; lastActiveAtUtc: string | null;
   /** From 28 Oct 2026, when the browser sends each minute. */
   longestNoOutputMinutes?: number | null; longestNoOutputFrom?: string | null; longestNoOutputTo?: string | null;
-  blockCounts?: Record<BlockState, number> | null;
+  blockCounts?: Partial<Record<BlockState, number>> | null;
+  productiveMinutes?: number | null;
+  activeNoOutputMinutes?: number | null;
 };
 
 export type PersonDay = {
@@ -364,8 +377,10 @@ export type PersonDay = {
     firstActive: string | null; lastActive: string | null; activeMinutes: number;
     longestNoOutput: { minutes: number; from: string; to: string; activeMinutes: number; endsWithOutput: boolean } | null;
     blocks: Array<{ from: string; to: string; state: BlockState; outputs: number; activeMinutes: number;
-                    idleMinutes: number; hiddenMinutes: number }>;
-    blockCounts: Record<BlockState, number>;
+                    idleMinutes: number; hiddenMinutes: number; screenChanges?: number }>;
+    blockCounts: Partial<Record<BlockState, number>>;
+    productiveMinutes?: number;
+    activeNoOutputMinutes?: number;
     scrollOnly: Array<{ from: string; to: string; minutes: number }>;
   } | null;
   outputs: Array<{ at: string; time: string; kind: string; label: string; countsAsOutput: boolean;
@@ -374,6 +389,8 @@ export type PersonDay = {
   screens: Array<{ at: string; time: string; screen: string; journeyId?: string | null;
                    journeyReference?: string | null; minutes: number }>;
   minutesByScreen: Array<{ screen: string; activeMinutes: number }>;
+  outputWindowMinutes?: number;
+  hopScreenChanges?: number;
   notes: string[];
 };
 
@@ -381,6 +398,8 @@ export type EngagementReport = {
   from: string; to: string; period: EngagementPeriod;
   periods: Array<{ periodStart: string; label: string }>;
   workingDays: number; idleThresholdMinutes: number; sessionGapMinutes: number;
+  /** The SuperAdmin settings the productive figures use (2026-11-16). */
+  outputWindowMinutes?: number; hopScreenChanges?: number;
   people: EngagementPerson[];
   notes: string[];
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { changeText, minutesText, WINDOW_CHOICES, windowCommand } from '../activityWindowAdmin';
+import { changeText, engagementCommand, minutesText, WINDOW_CHOICES, windowCommand } from '../activityWindowAdmin';
 
 describe('reading window control', () => {
   it('offers 1 to 10 minutes', () => {
@@ -24,5 +24,30 @@ describe('reading window control', () => {
     expect(changeText({ ...base, tenantId: 't1', projectName: 'Mahindra Orissa', previousMinutes: null, minutes: 2 })).toBe('Mahindra Orissa: 2 minutes');
     expect(changeText({ ...base, tenantId: 't1', projectName: 'Mahindra Orissa', previousMinutes: 2, minutes: null }))
       .toBe('Mahindra Orissa: 2 minutes → follows the all-Projects value');
+  });
+});
+
+describe('engagement settings (2026-11-16)', () => {
+  const window = { min: 5, max: 60 };
+  const hop = { min: 3, max: 50 };
+  it('builds the change of one number for all Projects or one Project', () => {
+    expect(engagementCommand('*', 'outputWindowMinutes', '30', window)).toEqual({ command: { tenantId: null, outputWindowMinutes: 30 } });
+    expect(engagementCommand('t1', 'hopScreenChanges', '12', hop)).toEqual({ command: { tenantId: 't1', hopScreenChanges: 12 } });
+    expect(engagementCommand('t1', 'hopScreenChanges', '', hop)).toEqual({ command: { tenantId: 't1', hopScreenChanges: null } });
+    expect(engagementCommand('*', 'hopScreenChanges', '', hop).error).toMatch(/every Project/);
+    expect(engagementCommand('*', 'outputWindowMinutes', '4', window).error).toMatch(/5 to 60/);
+    expect(engagementCommand('*', 'hopScreenChanges', '51', hop).error).toMatch(/3 to 50/);
+  });
+
+  it('describes an engagement change in the log', () => {
+    const base = { tenantId: 't1', projectName: 'Mahindra Orissa', previousMinutes: null, minutes: null,
+      changedByActorId: 'sa', changedAtUtc: '2026-11-16T15:00:00Z' };
+    expect(changeText({ ...base, setting: 'ENGAGEMENT', outputWindowMinutes: 30, hopScreenChanges: 12 }))
+      .toBe('Mahindra Orissa: output window 30 minutes, clicking around after 12 screen changes');
+    expect(changeText({ ...base, setting: 'ENGAGEMENT', outputWindowMinutes: null, hopScreenChanges: 12 }))
+      .toBe('Mahindra Orissa: clicking around after 12 screen changes');
+    expect(changeText({ ...base, setting: 'ENGAGEMENT', outputWindowMinutes: null, hopScreenChanges: null }))
+      .toBe('Mahindra Orissa: engagement numbers follow the all-Projects values');
+    expect(changeText({ ...base, setting: 'READING_WINDOW', minutes: 4 })).toBe('Mahindra Orissa: 4 minutes');
   });
 });

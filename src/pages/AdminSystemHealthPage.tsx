@@ -15,6 +15,7 @@ import FailedRequestsTab from '../features/admin/systemHealth/FailedRequestsTab'
 import InfrastructureTab from '../features/admin/systemHealth/InfrastructureTab';
 import UploadPauseControl from '../features/admin/systemHealth/UploadPauseControl';
 import ActivityWindowControl from '../features/admin/systemHealth/ActivityWindowControl';
+import EngagementSettingsControl from '../features/admin/systemHealth/EngagementSettingsControl';
 import { formatWhen } from '../features/task-manager/tmFormat';
 import {
   agoText, alertCounts, barHeights, bytesText, connectionsInUse, cpuText, diTotals, errorRate, memoryText, overallStatus,
@@ -273,6 +274,7 @@ export default function AdminSystemHealthPage() {
       {accessToken ? <UploadPauseControl accessToken={accessToken} /> : null}
       {/* The reading window of time on Verigence (product owner 2026-11-09). */}
       {accessToken ? <ActivityWindowControl accessToken={accessToken} /> : null}
+      {accessToken ? <EngagementSettingsControl accessToken={accessToken} /> : null}
 
       <div className="sh-tabs" role="tablist" aria-label="System health view">
         {TABS.map((t) => (

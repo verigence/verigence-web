@@ -8,6 +8,7 @@ import {
   changeGlobalUserLifecycleStatus,
   hardDeleteGlobalUser,
   listGlobalUsers,
+  renameGlobalUser,
   requestGlobalUserDeletion,
   type GlobalUserDirectoryItem,
   type GlobalUserLifecycleStatus,
@@ -78,6 +79,7 @@ export default function AdminUsersPage() {
   const [bulkRun, setBulkRun] = useState<BulkRun | null>(null);
   const [bulkCreateOpen, setBulkCreateOpen] = useState(false);
   const [hrRolesUser, setHrRolesUser] = useState<GlobalUserDirectoryItem | null>(null);
+  const [renaming, setRenaming] = useState<{ user: GlobalUserDirectoryItem; first: string; last: string } | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ['security', 'platform-users', 'all'],
@@ -95,6 +97,18 @@ export default function AdminUsersPage() {
       await queryClient.invalidateQueries({ queryKey: ['security', 'platform-users'] });
     },
     onError: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['security', 'platform-users'] });
+    },
+  });
+
+  const rename = useMutation({
+    mutationFn: ({ userId, first, last }: { userId: string; first: string; last: string }) =>
+      renameGlobalUser(accessToken!, userId, first, last),
+    onSuccess: async (result) => {
+      setFeedback(result.clerkSynced === false
+        ? `Name changed to ${result.displayName}. The sign-in profile could not be updated; it shows the old name until it is.`
+        : `Name changed to ${result.displayName}. It shows on every screen from the user's next sign-in.`);
+      setRenaming(null);
       await queryClient.invalidateQueries({ queryKey: ['security', 'platform-users'] });
     },
   });
@@ -385,6 +399,16 @@ export default function AdminUsersPage() {
                     <td data-label="Updated"><span>{formatDate(user.updatedAtUtc)}</span></td>
                     <td data-label="Actions">
                       <div className="uc01-admin-row-actions">
+                        <button
+                          type="button"
+                          className="uc01-admin-button uc01-admin-button--compact"
+                          onClick={() => {
+                            const parts = user.displayName.trim().split(/\s+/);
+                            setRenaming({ user, first: parts[0] ?? '', last: parts.slice(1).join(' ') });
+                          }}
+                        >
+                          Change name
+                        </button>
                         {currentStatus === 'ACTIVE' && (
                           <button
                             type="button"
@@ -528,6 +552,40 @@ export default function AdminUsersPage() {
                   </button>
                 </>
               )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {renaming && (
+        <div className="uc01-admin-dialog-backdrop" role="presentation">
+          <section className="uc01-admin-dialog" role="dialog" aria-modal="true" aria-labelledby="uc01-user-rename-title">
+            <div>
+              <span className="eyebrow">User profile</span>
+              <h2 id="uc01-user-rename-title">Change name</h2>
+              <p>{renaming.user.primaryEmail ?? renaming.user.userId} is shown as {renaming.user.displayName}.</p>
+            </div>
+            <label className="uc01-admin-reason">
+              <span>First name</span>
+              <input value={renaming.first} maxLength={100} autoFocus
+                onChange={(event) => setRenaming({ ...renaming, first: event.target.value })} />
+            </label>
+            <label className="uc01-admin-reason">
+              <span>Last name</span>
+              <input value={renaming.last} maxLength={100}
+                onChange={(event) => setRenaming({ ...renaming, last: event.target.value })} />
+            </label>
+            {rename.isError ? <p className="uc01-admin-error" role="alert">{(rename.error as Error).message}</p> : null}
+            <div className="uc01-admin-dialog__actions">
+              <button type="button" className="uc01-admin-button" disabled={rename.isPending} onClick={() => setRenaming(null)}>Cancel</button>
+              <button
+                type="button"
+                className="uc01-admin-button uc01-admin-button--primary"
+                disabled={rename.isPending || !renaming.first.trim()}
+                onClick={() => rename.mutate({ userId: renaming.user.userId, first: renaming.first, last: renaming.last })}
+              >
+                {rename.isPending ? 'Saving…' : 'Save name'}
+              </button>
             </div>
           </section>
         </div>

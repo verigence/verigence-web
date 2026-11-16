@@ -139,7 +139,7 @@ export function GateRegisterTable({ outlets, tenantId, accessToken }: {
     }
   }
 
-  if (!dates.length) return <p className="p2w-muted">No gate register day in this period (Sunday is off).</p>;
+  if (!dates.length) return <p className="p2w-muted">No gate register day in this period.</p>;
   return (
     <>
       {photoError ? <div className="p2w-alert p2w-alert--error" role="alert">{photoError}</div> : null}

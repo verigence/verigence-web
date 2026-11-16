@@ -109,6 +109,10 @@
   margin: 0 0 10px;
 }
 
+.vg-notify__tiles--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .vg-notify__tiles div {
   padding: 8px;
   border-radius: 6px;
@@ -215,7 +219,7 @@
     border-radius: 0 0 10px 10px;
   }
 
-  .vg-notify__tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .vg-notify__tiles--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

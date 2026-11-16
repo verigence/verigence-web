@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { badgeLabel, journeyStatusLine, timeAgo } from '../../../services/audit-core/notifications';
+import { badgeLabel, itemLink, sourceLabel, timeAgo } from '../../../services/audit-core/notifications';
 
 describe('the notification bell', () => {
   it('shows no number under one and 99+ past 99', () => {
@@ -10,15 +10,13 @@ describe('the notification bell', () => {
     expect(badgeLabel(140)).toBe('99+');
   });
 
-  it('says what a booking still needs, the file never read first', () => {
+  it('takes an upload that left no record to its booking, or to the bulk or Drive page', () => {
     // UTK-BP-261111-004 (16 Nov): DOC-20261112-WA0021.pdf was never split into pages.
-    expect(journeyStatusLine({
-      journeyId: 'j', reference: 'UTK-BP-261111-004', beingRead: 0, stuck: 0, failedPages: 0,
-      filesNotRead: 1, files: ['DOC-20261112-WA0021.pdf'], uploadTasks: 1,
-    })).toBe('1 file not read, 1 task to upload again');
-    expect(journeyStatusLine({
-      journeyId: 'j', beingRead: 3, stuck: 1, failedPages: 2, filesNotRead: 0, files: [], uploadTasks: 0,
-    })).toBe('2 pages failed, 3 pages being read (1 for over 6 h)');
+    const base = { itemId: 'i', name: 'DOC-20261112-WA0021.pdf', reason: 'r', atUtc: '2026-11-12T10:04:24Z' };
+    expect(itemLink({ ...base, source: 'UPLOAD', journeyId: 'j1' })).toBe('/p2/journeys/j1/documents?tab=files');
+    expect(itemLink({ ...base, source: 'BULK' })).toBe('/p2/bulk-upload');
+    expect(itemLink({ ...base, source: 'DRIVE' })).toBe('/p2/drive-uploads');
+    expect(sourceLabel('DRIVE')).toBe('Google Drive');
   });
 
   it('says how long ago a message came', () => {

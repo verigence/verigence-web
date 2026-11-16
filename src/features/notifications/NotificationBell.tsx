@@ -5,8 +5,9 @@ import { Link } from 'react-router-dom';
 import {
   badgeLabel,
   getNotifications,
-  journeyStatusLine,
+  itemLink,
   markNotificationsSeen,
+  sourceLabel,
   timeAgo,
 } from '../../services/audit-core/notifications';
 import { useProjectContextStore } from '../../store/projectContextStore';
@@ -17,9 +18,10 @@ import '../../styles/notification-bell.css';
 const POLL_MS = 60_000;
 
 /**
- * The notification bell in the top bar (product owner 2026-11-16): the person's messages and the
- * status of the documents they uploaded, in one panel (the Carbon header notification panel
- * pattern). The number is unread messages plus documents that need the person. Opening the panel
+ * The notification bell in the top bar (product owner 2026-11-16): the person's messages and what
+ * they uploaded that left no record -- a file never read, a bulk or Google Drive file not uploaded
+ * or set aside (failed pages and the rest raise tasks, so they are not here) -- in one panel (the
+ * Carbon header notification panel pattern). The number is unread messages plus those uploads. Opening the panel
  * marks the messages read on the server; the ones that were new stay marked while it is open.
  */
 export default function NotificationBell() {
@@ -94,27 +96,26 @@ export default function NotificationBell() {
 
           {status ? (
             <div className="vg-notify__section">
-              <h3>Your documents</h3>
-              <dl className="vg-notify__tiles">
-                <div className={status.filesNotRead ? 'is-danger' : ''}><dt>Files not read</dt><dd>{status.filesNotRead}</dd></div>
-                <div className={status.failedPages ? 'is-danger' : ''}><dt>Pages failed</dt><dd>{status.failedPages}</dd></div>
-                <div className={status.uploadTasks ? 'is-warning' : ''}><dt>Upload again</dt><dd>{status.uploadTasks}</dd></div>
-                <div className={status.stuck ? 'is-warning' : ''}><dt>Being read</dt><dd>{status.beingRead}</dd></div>
+              <h3>Not uploaded</h3>
+              <dl className="vg-notify__tiles vg-notify__tiles--three">
+                <div className={status.upload ? 'is-danger' : ''}><dt>Uploads</dt><dd>{status.upload}</dd></div>
+                <div className={status.bulk ? 'is-danger' : ''}><dt>Bulk uploads</dt><dd>{status.bulk}</dd></div>
+                <div className={status.drive ? 'is-danger' : ''}><dt>Google Drive</dt><dd>{status.drive}</dd></div>
               </dl>
-              {status.journeys.length ? (
+              {status.items.length ? (
                 <ul className="vg-notify__list">
-                  {status.journeys.map((line) => (
-                    <li key={line.journeyId}>
-                      <Link to={`/p2/journeys/${line.journeyId}/documents`} onClick={() => setOpen(false)}>
-                        <strong>{line.reference || 'Booking'}</strong>
-                        <span>{journeyStatusLine(line)}</span>
-                        {line.files.length ? <small>{line.files.join(', ')}</small> : null}
+                  {status.items.map((item) => (
+                    <li key={`${item.source}:${item.itemId}`}>
+                      <Link to={itemLink(item)} onClick={() => setOpen(false)}>
+                        <strong>{item.name}</strong>
+                        <span>{item.reason}</span>
+                        <small>{sourceLabel(item.source)}{item.reference ? ` · ${item.reference}` : ''} · {timeAgo(item.atUtc)}</small>
                       </Link>
                     </li>
                   ))}
-                  {status.moreJourneys ? <li className="vg-notify__more">and {status.moreJourneys} more bookings</li> : null}
+                  {status.more ? <li className="vg-notify__more">and {status.more} more</li> : null}
                 </ul>
-              ) : <p className="vg-notify__empty">All your documents are read. Nothing is waiting on you.</p>}
+              ) : <p className="vg-notify__empty">Everything you uploaded in the last 14 days reached Verigence.</p>}
             </div>
           ) : null}
 

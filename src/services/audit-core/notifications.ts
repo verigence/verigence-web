@@ -5,8 +5,9 @@ import { auditCoreRequest } from './client';
  * should click on it know the status or any notification messages".
  *
  * GET  /p2/v1/tenants/{t}/notifications       the person's messages (Project alerts addressed to them,
- *                                             last 7 days, kept after the banner closed them) and the
- *                                             status of the documents they uploaded
+ *                                             last 7 days, kept after the banner closed them) and their
+ *                                             uploads of the last 14 days that left no record (a file never
+ *                                             read, a bulk or Google Drive file not uploaded or set aside)
  * POST /p2/v1/tenants/{t}/notifications:seen  the person opened the bell (kept on the server, so the web
  *                                             and the app agree on what is unread)
  */
@@ -23,34 +24,34 @@ export type NotificationMessage = {
   unread: boolean;
 };
 
-export type DocumentStatusJourney = {
-  journeyId: string;
+/** Where an upload that left no record came from (product owner 2026-11-16: notify only what did not
+ *  get uploaded -- failed pages and the rest already raise tasks). */
+export type UploadSource = 'UPLOAD' | 'BULK' | 'DRIVE';
+
+export type NotUploaded = {
+  source: UploadSource | string;
+  itemId: string;
+  name: string;
+  reason: string;
+  journeyId?: string | null;
   reference?: string | null;
-  beingRead: number;
-  stuck: number;
-  failedPages: number;
-  filesNotRead: number;
-  files: string[];
-  uploadTasks: number;
+  atUtc: string;
 };
 
-export type DocumentStatus = {
-  beingRead: number;
-  stuck: number;
-  failedPages: number;
-  filesNotRead: number;
-  uploadTasks: number;
-  /** Failed pages + files not read + open "upload again" tasks: what the person has to act on. */
-  needsAction: number;
-  journeys: DocumentStatusJourney[];
-  moreJourneys: number;
+export type UploadStatus = {
+  upload: number;
+  bulk: number;
+  drive: number;
+  total: number;
+  items: NotUploaded[];
+  more: number;
 };
 
 export type Notifications = {
   messages: NotificationMessage[];
   unreadCount: number;
-  status: DocumentStatus;
-  /** Unread messages + documents needing the person: the number on the bell. */
+  status: UploadStatus;
+  /** Unread messages + uploads that left no record: the number on the bell. */
   badgeCount: number;
   seenAtUtc?: string | null;
   serverTimeUtc: string;
@@ -84,17 +85,13 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
   return `${Math.floor(hours / 24)} d ago`;
 }
 
-/** What one booking still needs, in a line: "1 file not read, 2 pages failed, 1 task to upload again". */
-export function journeyStatusLine(line: DocumentStatusJourney): string {
-  const parts: string[] = [];
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  if (line.filesNotRead) parts.push(plural(line.filesNotRead, 'file not read', 'files not read'));
-  if (line.failedPages) parts.push(plural(line.failedPages, 'page failed', 'pages failed'));
-  if (line.uploadTasks) parts.push(plural(line.uploadTasks, 'task to upload again', 'tasks to upload again'));
-  if (line.beingRead) {
-    parts.push(line.stuck
-      ? `${plural(line.beingRead, 'page', 'pages')} being read (${line.stuck} for over 6 h)`
-      : plural(line.beingRead, 'page being read', 'pages being read'));
-  }
-  return parts.join(', ');
+/** Where the item came from, in words. */
+export function sourceLabel(source: string): string {
+  return ({ UPLOAD: 'Upload', BULK: 'Bulk upload', DRIVE: 'Google Drive' } as Record<string, string>)[source] ?? source;
+}
+
+/** Where to go for it: the booking when there is one, else the bulk or Drive upload page. */
+export function itemLink(item: NotUploaded): string {
+  if (item.journeyId) return `/p2/journeys/${item.journeyId}/documents?tab=files`;
+  return item.source === 'DRIVE' ? '/p2/drive-uploads' : '/p2/bulk-upload';
 }

@@ -167,6 +167,16 @@
 .p2or-actions { display: flex; gap: 8px; align-items: center; }
 .p2or-seen { font-size: .78rem; margin-top: 8px; }
 
+/* Insurance dumps and the OD discount grid (16 Nov 2026) */
+.p2ins-file { grid-template-columns: minmax(180px, 2fr) minmax(160px, 1fr) auto; }
+.p2ins-grid input, .p2ins-grid select {
+  min-height: 32px; border: 0; border-bottom: 1px solid #8d8d8d; background: #f4f4f4; font: inherit; font-size: .85rem;
+}
+.p2ins-grid input[type='number'] { width: 96px; text-align: right; }
+.p2ins-grid input:not([type='number']) { min-width: 200px; }
+.p2ins-grid input:disabled, .p2ins-grid select:disabled { background: transparent; border-bottom-color: transparent; color: #161616; }
+.p2ins-sub { margin: 20px 0 8px; font-size: .9rem; font-weight: 600; }
+
 @media (max-width: 767px) {
   .p2du-runfiles thead { display: none; }
   .p2du-runfiles tr.p2du-file-row { display: grid; grid-template-columns: 1fr 1fr; }
@@ -188,4 +198,6 @@
   .p2du-switcher { display: flex; width: 100%; }
   .p2du-switcher button { flex: 1; padding: 0 8px; }
   .p2or-table .p2or-sticky { min-width: 130px; max-width: 150px; }
+  .p2ins-file { grid-template-columns: 1fr 1fr; }
+  .p2ins-grid input:not([type='number']) { min-width: 140px; }
 }

@@ -12,6 +12,7 @@ import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
 import ActivityTracker from '../features/task-manager/ActivityTracker';
 import TenantAlertBanner from '../features/tenant-alerts/TenantAlertBanner';
+import NotificationBell from '../features/notifications/NotificationBell';
 import BulkUploadBanner from '../features/uc03-p2/bulk/BulkUploadBanner';
 import { useHrAccess, useLeadsAProject } from '../features/hr/hrQueries';
 import { ANALYTICS_REPORTS, reportFromParam } from '../features/insights/reportCatalog';
@@ -861,6 +862,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         </div>
         <div className="enterprise-topbar__actions">
           {selectedProject && gateReachesMore && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
+          {selectedProject && <NotificationBell />}
           <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
             <span className="enterprise-topbar__avatar">{myIdentity.photoUrl ? <img className="enterprise-topbar__avatar-photo" src={myIdentity.photoUrl} alt="" /> : avatarText}</span>
             <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{(myIdentity.hasRecord && myIdentity.designation) || roleLabel}</small></span>

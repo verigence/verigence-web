@@ -14,12 +14,11 @@ function monthName(month: string): string {
 
 /**
  * Late check-ins and early check-outs so far this month, with how late or early in hours, and the
- * average hours a day against the 9 expected (product owner, 16 Nov 2026). Past a limit the month's
- * attendance requests go to a Project Manager or Executive, and the note says why.
+ * average hours a day against the 9 expected (product owner, 16 Nov 2026). Past the late/early
+ * limit the month's attendance requests go to a Project Manager or Executive, and the note says why.
  */
 export default function MonthStatsPanel({ stats, own = true }: Props) {
   const over = stats.lateEarlyMinutes > stats.limits.lateEarlyHours * 60;
-  const low = stats.averageMinutes !== null && stats.averageMinutes < stats.limits.averageHoursBelow * 60;
   return (
     <div className="hr-month-stats" aria-label={`Late, early and average hours in ${monthName(stats.month)}`}>
       <div className="hr-cal-tiles">
@@ -38,10 +37,10 @@ export default function MonthStatsPanel({ stats, own = true }: Props) {
           <strong>{formatMinutes(stats.lateEarlyMinutes)}</strong>
           <small>limit {stats.limits.lateEarlyHours} h a month</small>
         </div>
-        <div className={low ? 'is-attention' : undefined}>
+        <div>
           <span>Average a day</span>
           <strong>{stats.averageMinutes === null ? '—' : formatMinutes(stats.averageMinutes)}</strong>
-          <small>{stats.expectedHours} h expected; below {stats.limits.averageHoursBelow} h is over the limit</small>
+          <small>{stats.expectedHours} h expected</small>
         </div>
       </div>
       {stats.note && (

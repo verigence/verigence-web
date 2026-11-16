@@ -224,6 +224,77 @@ export function getSystemHealthDaily(days: number, tenantId: string | null, acce
 }
 
 /**
+ * GET /v1/admin/system-health/ai-cost (product owner 2026-11-16: "capture the cost"): what the AI
+ * provider calls of Document Intelligence cost, per IST day, Project and document type, at the
+ * provider's list price. A call that kept neither tokens nor cost is counted, never estimated.
+ */
+export interface AiCostFigures {
+  costUsd: number;
+  extractionUsd: number;
+  classificationUsd: number;
+  costFromTokensUsd: number;
+  reads: number;
+  classifications: number;
+  failedCalls: number;
+  callsWithoutCost: number;
+  promptTokens: number;
+  outputTokens: number;
+}
+
+export interface AiCostDay extends AiCostFigures { date: string }
+
+export interface AiCostProject extends AiCostFigures {
+  tenantId: string;
+  projectName: string;
+  projectStatus: string | null;
+  journeysWithUploads: number;
+  costPerJourneyUsd: number | null;
+}
+
+export interface AiCostDocumentType extends AiCostFigures {
+  documentTypeKey: string;
+  costPerReadUsd: number | null;
+}
+
+export interface AiCostPrice { model: string; tier: string; inputPerMTok: number; outputPerMTok: number }
+
+export interface SystemHealthAiCost {
+  generatedAtUtc: string;
+  /** False when Document Intelligence could not be asked; `error` says why and the figures are empty. */
+  available: boolean;
+  error: string | null;
+  days: number;
+  firstDay: string;
+  timezone: string;
+  currency: string;
+  /** Rupees per US dollar used for the approximate rupee figures. */
+  usdInr: number;
+  tenantId: string | null;
+  projectOptions: Array<{ tenantId: string; projectName: string; projectStatus: string | null }>;
+  prices: AiCostPrice[];
+  classificationRecordedSinceUtc: string | null;
+  totals: AiCostFigures;
+  today: AiCostDay | null;
+  month: {
+    month: string; coveredFromFirst: boolean; costUsd: number; completeDays: number; daysInMonth: number;
+    projectedUsd: number | null;
+  };
+  daily: AiCostDay[];
+  projects: AiCostProject[];
+  documentTypes: AiCostDocumentType[];
+  notes: string[];
+}
+
+export function getSystemHealthAiCost(days: number, tenantId: string | null, accessToken: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (tenantId) params.set('tenantId', tenantId);
+  return auditCoreRequest<SystemHealthAiCost>(`/v1/admin/system-health/ai-cost?${params.toString()}`, {
+    accessToken,
+    timeoutMs: 30_000,
+  });
+}
+
+/**
  * GET /v1/admin/system-health/infrastructure (2026-10-31): the Cloudflare web Worker, the R2
  * bucket and the Neon database. Each outside source says whether it is configured and whether it
  * answered; a node that could not be read carries the reason instead of failing the page.

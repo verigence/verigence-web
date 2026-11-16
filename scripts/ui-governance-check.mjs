@@ -250,6 +250,9 @@ const projectNameViews = new Set([
   // SuperAdmin System Health's Jobs tab (2026-11-13): which Project each Google Drive run belongs to.
   // Rendered only by src/pages/AdminSystemHealthPage.tsx (an Admin page, SuperAdmin only).
   'src/features/admin/systemHealth/JobsTab.tsx',
+  // SuperAdmin System Health's AI cost tab (2026-11-16): its Project filter and the cost per Project.
+  // Rendered only by src/pages/AdminSystemHealthPage.tsx (an Admin page, SuperAdmin only).
+  'src/features/admin/systemHealth/AiCostTab.tsx',
   // Choose Dealership (product owner 2026-11-07): a person holding several Team Lead / PM /
   // Executive assignments could not tell them apart, so each card names its Project and the role.
   'src/components/ProjectContextGate.tsx',

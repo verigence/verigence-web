@@ -8,6 +8,7 @@ import '../styles/system-health.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import AiCostTab from '../features/admin/systemHealth/AiCostTab';
 import DailyTrendTab from '../features/admin/systemHealth/DailyTrendTab';
 import DataArchiveTab from '../features/admin/systemHealth/DataArchiveTab';
 import JobsTab from '../features/admin/systemHealth/JobsTab';
@@ -33,10 +34,12 @@ import { useSessionStore } from '../store/sessionStore';
  * the server enforces it.
  */
 
-type HealthTab = 'overview' | 'errors' | 'infra' | 'daily' | 'archive' | 'jobs';
+type HealthTab = 'overview' | 'errors' | 'infra' | 'daily' | 'cost' | 'archive' | 'jobs';
 const TABS: Array<{ key: HealthTab; label: string }> = [
   { key: 'overview', label: 'Overview' }, { key: 'errors', label: 'Failed requests' },
   { key: 'infra', label: 'Cloudflare & Neon' }, { key: 'daily', label: 'Daily trend' },
+  // What the AI provider calls cost (product owner 2026-11-16).
+  { key: 'cost', label: 'AI cost' },
   // The nightly data archive (product owner 2026-11-09).
   { key: 'archive', label: 'Data archive' },
   // Every job on a clock, and the time of the daily ones (product owner 2026-11-13).
@@ -267,7 +270,7 @@ export default function AdminSystemHealthPage() {
       <PageHeader
         eyebrow="Administration"
         title="System health"
-        description="Services, restarts, failed requests, CPU and memory, deployments, stuck work, Cloudflare, R2 and the Neon database, across every Project."
+        description="Services, restarts, failed requests, CPU and memory, deployments, stuck work, Cloudflare, R2, the Neon database and what the AI calls cost, across every Project."
       />
 
       {accessToken ? <UploadPauseControl accessToken={accessToken} /> : null}
@@ -282,10 +285,11 @@ export default function AdminSystemHealthPage() {
       </div>
 
       {tab === 'daily' && accessToken ? <DailyTrendTab accessToken={accessToken} /> : null}
+      {tab === 'cost' && accessToken ? <AiCostTab accessToken={accessToken} /> : null}
       {tab === 'archive' && accessToken ? <DataArchiveTab accessToken={accessToken} /> : null}
       {tab === 'jobs' && accessToken ? <JobsTab accessToken={accessToken} /> : null}
 
-      {tab !== 'daily' && tab !== 'archive' && tab !== 'jobs' ? (
+      {tab !== 'daily' && tab !== 'cost' && tab !== 'archive' && tab !== 'jobs' ? (
       <div className="p2w-listbar">
         <div className="p2w-segment" role="tablist" aria-label="Window">
           {WINDOWS.map((w) => (

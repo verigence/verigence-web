@@ -6,11 +6,11 @@ export type GatePassOutlet = {
   dealerId: string; dealerName: string; outletId: string; outletName: string;
   classification: string; isDefault: boolean;
 };
-/** A day a gate pass can be uploaded for; Monday's covers Sunday too (Sunday is off, 2026-10-27). */
+/** A day a gate pass can be uploaded for. One day each from 15 Nov 2026, Sunday included (2026-11-16); before, Monday's covered Sunday too. */
 export type GatePassDayInfo = { date: string; label: string; coversDates: string[]; dueAtUtc: string };
 export type GatePassOutlets = {
   businessDate: string; outlets: GatePassOutlet[]; defaultOutletId: string | null;
-  /** Today's gate pass day; none on a Sunday. */
+  /** Today's gate pass day; none on a Sunday before 15 Nov 2026 (Sunday then went with Monday). */
   today?: GatePassDayInfo | null;
   /** The previous gate pass day, while it can still be uploaded. */
   previous?: GatePassDayInfo | null;
@@ -24,7 +24,7 @@ export type GatePassOutlets = {
   window?: GatePassWindow;
 };
 
-/** Today back to N-7 (India time), Sunday left out: Monday's register covers Sunday (product owner 2026-11-07). */
+/** Today back to N-7 (India time) (product owner 2026-11-07); a Sunday before 15 Nov 2026 is left out (Monday's covered it). */
 export type GatePassWindow = {
   today: string; uploadFrom: string; editFrom: string; uploadBackDays: number; editBackDays: number; maxPages: number;
   days: GatePassDayInfo[];

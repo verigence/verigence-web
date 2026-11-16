@@ -166,8 +166,8 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   const [pastDeliveries, setPastDeliveries] = useState('');
   const [notNotified, setNotNotified] = useState('');
   const [outcome, setOutcome] = useState<string | null>(null);
-  // The date the register is for: the PC always chooses it, today back to N-7, Sunday going with
-  // Monday (product owner 2026-11-07). pickedDate is the choice on the date step, forDate the one made.
+  // The date the register is for: the PC always chooses it, today back to N-7 (product owner 2026-11-07); every
+  // day has its own register, Sunday included, from 15 Nov 2026 (2026-11-16). pickedDate is the choice on the date step, forDate the one made.
   const [forDate, setForDate] = useState<string | null>(null);
   const [pickedDate, setPickedDate] = useState('');
   // A register on file for the chosen date, whose photos can still be changed (N to N-3).
@@ -195,7 +195,10 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   const picked = choosable.find((d) => d.date === pickedDate) ?? null;
   const chosenDay = gatePass?.dayLabel ?? register?.dayLabel ?? dayOf(forDate)?.label ?? null;
   const dayWords = forDate && forDate !== todayDate ? `for ${chosenDay}` : 'today';
-  const sundayToday = isSunday(todayDate ?? undefined) || (!outletsQuery.data?.today && Boolean(outletsQuery.data?.previous));
+  // A Sunday that has no register of its own: before 15 Nov 2026 (Sunday then went with Monday). From
+  // then every day has its own register, Sunday included (product owner 2026-11-16): the server's
+  // ``today`` is then set on a Sunday too, and this notice stays away.
+  const sundayToday = outletsQuery.isSuccess && !outletsQuery.data?.today && isSunday(todayDate ?? undefined);
 
   const covers = gatePass?.coversDates ?? register?.coversDates ?? dayOf(forDate)?.coversDates ?? (forDate ? [forDate] : []);
   // Correcting the counts of a register uploaded today (product owner 2026-11-03).
@@ -544,7 +547,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
               <legend>Which date is this gate register for?</legend>
               <p className="p2w-muted p2gp-days__help">
                 You can upload a register for today or any of the last {daysQuery.data?.uploadBackDays ?? 7} days. A register already
-                uploaded can be changed for {daysQuery.data?.editBackDays ?? 3} days after its date. Sunday is off: its gate pass goes with Monday’s.
+                uploaded can be changed for {daysQuery.data?.editBackDays ?? 3} days after its date. Each day has its own register, Sunday included.
               </p>
               {choosable.map((day) => {
                 const tag = dayTag(day);

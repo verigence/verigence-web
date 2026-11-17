@@ -103,3 +103,13 @@ describe('readings and offer (2026-11-14); the NDC decides (2026-11-15)', () => 
     expect(offerLine(item as never)).toBe('Grid: base ₹5,000 · with insurance ₹7,000 (judged at with insurance)');
   });
 });
+
+describe('the NDC reading in doubt list (2026-11-17)', () => {
+  it('lists a discount read from an NDC that does not add up apart, never as excess', () => {
+    const doubt = { journeyId: 'j1', journeyReference: 'UTK-SA-261027-004', customer: null, pc: null, outlet: null,
+      model: null, variant: null, discountKey: 'ADDITIONAL_DISCOUNT', discount: 'Dealer discount', status: 'READING_IN_DOUBT',
+      entitled: '0', invoice: '71000', variance: '71000', givenFrom: 'billed', reason: 'the NDC does not add up' } as const;
+    expect(inView([doubt], 'doubt')).toHaveLength(1);
+    expect(inView([doubt], 'over')).toHaveLength(0);
+  });
+});

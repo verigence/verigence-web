@@ -114,6 +114,7 @@ const P2DailyProcessingReportPage = lazy(() => import('./pages/P2DailyProcessing
 const P2ProjectTrackerPage = lazy(() => import('./pages/P2ProjectTrackerPage'));
 const P2GatePassPage = lazy(() => import('./pages/P2GatePassPage'));
 const P2MissingDocumentsPage = lazy(() => import('./pages/P2MissingDocumentsPage'));
+const P2VerifiedBookingsPage = lazy(() => import('./pages/P2VerifiedBookingsPage'));
 const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
 const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
@@ -407,6 +408,7 @@ export default function App() {
               <Route path="/p2/project-tracker" element={<OperationalPage><P2ProjectTrackerPage /></OperationalPage>} />
               <Route path="/p2/gate-pass" element={<OperationalPage><P2GatePassPage /></OperationalPage>} />
               <Route path="/p2/missing-documents" element={<OperationalPage><P2MissingDocumentsPage /></OperationalPage>} />
+              <Route path="/p2/verified-bookings" element={<OperationalPage><P2VerifiedBookingsPage /></OperationalPage>} />
               <Route path="/p2/task-manager" element={<OperationalPage><P2TaskManagerPage /></OperationalPage>} />
               <Route path="/p2/reports/utilisation" element={<OperationalPage><P2UtilisationPage /></OperationalPage>} />
               <Route path="/p2/reports/di" element={<OperationalPage><P2DiDashboardPage /></OperationalPage>} />

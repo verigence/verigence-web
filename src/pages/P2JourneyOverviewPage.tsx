@@ -38,6 +38,8 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
+import VerifiedBookingControl from '../features/uc03-p2/verified/VerifiedBookingControl';
+import '../styles/uc03-p2-verified.css';
 
 const TABS = [
   { key: 'deal', label: 'Deal' },
@@ -269,6 +271,8 @@ export default function P2JourneyOverviewPage() {
                 {STAGE_LABEL[data.stage.stage] ?? humanizeKey(data.stage.stage)}
               </span>
               <JourneyClosedBadge closure={j.reviewerClosure} closed={j.closed} />
+              {/* Checked against the papers by a TL / Reviewer, and still the same (2026-11-17). */}
+              {tenantId && journeyId ? <VerifiedBookingControl tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} /> : null}
             </div>
             <ul className="j360-counts" aria-label="Status">
               <li className={failed ? 'is-danger' : 'is-success'}>

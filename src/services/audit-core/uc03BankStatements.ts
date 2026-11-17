@@ -195,6 +195,44 @@ export function listMatchedTransactions(tenantId: string, month: string, accessT
     `${base(tenantId)}/bank-statements/matched?${query}`, { accessToken, cache: 'no-store' });
 }
 
+/**
+ * Each account's running record (product owner 17 Nov 2026: "keep a record of bank statement
+ * transactions as and when they get loaded"): every transaction of the month once across the
+ * uploads, the days covered and missing, and whether the balances continue between uploads.
+ */
+export type BankAccountCoverage = {
+  coveredDays: number; from: string | null; to: string | null; missing: string[];
+  notYetLoaded: { from: string; to: string } | null;
+};
+export type BankAccount = {
+  account: string; dealerId: string; dealerName: string | null; outletName: string | null;
+  bankName: string | null; accountNumber: string | null; accountHolder: string | null; uploads: number;
+  lastUploadedAtUtc: string; openingBalance: string | null; closingBalance: string | null;
+  transactions: number; credits: number; creditTotal: string; debits: number; debitTotal: string;
+  creditsNoReceipt: number; coverage: BankAccountCoverage;
+  balanceBreaks: { after: string; closing: string; nextOpening: string; difference: string;
+    fileBefore: string; fileAfter: string }[];
+};
+export type BankRegisterRow = {
+  date: string | null; valueDate: string | null; narration: string | null; reference: string | null;
+  debit: string | null; credit: string | null; balance: string | null; result: string | null;
+  basisLabel: string | null; journeyId: string | null; journeyReference: string | null;
+  loadedFrom: string; loadedAtUtc: string;
+};
+
+export function listBankAccounts(tenantId: string, month: string, accessToken?: string, dealerId?: string) {
+  const query = new URLSearchParams({ month });
+  if (dealerId) query.set('dealer_id', dealerId);
+  return auditCoreRequest<{ month: string; items: BankAccount[] }>(`${base(tenantId)}/bank-statements/accounts?${query}`,
+    { accessToken, cache: 'no-store' });
+}
+
+export function getBankAccountRegister(tenantId: string, account: string, month: string, accessToken?: string) {
+  const query = new URLSearchParams({ month, account });
+  return auditCoreRequest<BankAccount & { month: string; rows: BankRegisterRow[] }>(
+    `${base(tenantId)}/bank-statements/accounts/register?${query}`, { accessToken, cache: 'no-store' });
+}
+
 export function getBankStatement(tenantId: string, statementId: string, accessToken?: string) {
   return auditCoreRequest<BankStatementDetail>(`${base(tenantId)}/bank-statements/${encodeURIComponent(statementId)}`,
     { accessToken, cache: 'no-store' });

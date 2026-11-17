@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import SectionCard from '../../../components/SectionCard';
+import BankAccountsView from './BankAccountsView';
 import {
   JOURNEY_STATUSES,
   RECEIPT_OUTCOMES,
@@ -71,7 +72,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
   const [journeyStatus, setJourneyStatus] = useState<JourneyStatus | ''>('');
   const [creditView, setCreditView] = useState<'UNIDENTIFIED' | 'MATCHED' | 'LOAN' | ''>('UNIDENTIFIED');
   // The month as a whole: its statements, or every matched transaction across them (17 Nov 2026).
-  const [monthView, setMonthView] = useState<'statements' | 'matched'>('statements');
+  const [monthView, setMonthView] = useState<'statements' | 'matched' | 'accounts'>('statements');
   const input = useRef<HTMLInputElement>(null);
 
   const setup = useQuery({ queryKey: ['bank-setup', tenantId], queryFn: () => getBankSetup(tenantId!, accessToken), enabled });
@@ -141,6 +142,8 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['bank-statements', tenantId] }),
       queryClient.invalidateQueries({ queryKey: ['bank-matched', tenantId] }),
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts', tenantId] }),
+      queryClient.invalidateQueries({ queryKey: ['bank-account-register', tenantId] }),
     ]);
   };
   const exportExcel = async (statementId?: string) => {
@@ -160,6 +163,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
         queryClient.invalidateQueries({ queryKey: ['bank-statements', tenantId] }),
         queryClient.invalidateQueries({ queryKey: ['bank-statement', tenantId] }),
         queryClient.invalidateQueries({ queryKey: ['bank-matched', tenantId] }),
+        queryClient.invalidateQueries({ queryKey: ['bank-accounts', tenantId] }),
       ]);
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Could not be checked again.');
@@ -266,6 +270,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
           <div className="p2du-switcher p2du-switcher--sm" role="tablist" aria-label="Month view">
             <button type="button" role="tab" aria-selected={monthView === 'statements'} onClick={() => setMonthView('statements')}>Statements<b>{current.length}</b></button>
             <button type="button" role="tab" aria-selected={monthView === 'matched'} onClick={() => setMonthView('matched')}>Matched transactions<b>{matched.data?.count ?? total.matched}</b></button>
+            <button type="button" role="tab" aria-selected={monthView === 'accounts'} onClick={() => setMonthView('accounts')}>Accounts</button>
           </div>
         ) : null}
         {items.length && monthView === 'matched' ? (
@@ -306,6 +311,9 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
               </>
             ) : null}
           </div>
+        ) : null}
+        {items.length && monthView === 'accounts' ? (
+          <BankAccountsView tenantId={tenantId} accessToken={accessToken} month={month} dealerId={dealerId || undefined} enabled={enabled} />
         ) : null}
         {items.length && monthView === 'statements' ? (
           <div className="p2du-scroll">

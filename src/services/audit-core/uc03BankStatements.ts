@@ -3,7 +3,8 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
 /**
  * The dealership's own bank account statements (product owner 14 Nov 2026), uploaded on the
  * Data uploads tab per dealership or per outlet, any bank, PDF or Excel. Audit Core reads every
- * transaction and checks the payment receipts dated within the statement's period +/- 5 days
+ * transaction and checks the payment receipts dated within the statement's transaction dates (product
+ * owner 17 Nov 2026; until then its period +/- 5 days)
  * against its credits: which receipts are found in the bank, which are not, and per journey what
  * is verified and what is left. Audit Core /p2/v1/tenants/{t}/bank-statements.
  */
@@ -26,6 +27,7 @@ export type BankCounts = Partial<{
   journeys: number; journeysVerified: number; journeysPartial: number; journeysNotVerified: number; journeysCashOnly: number;
   verifiedAmount: string; leftAmount: string; credits: number; creditsMatched: number; creditsUnidentified: number;
   creditsUnidentifiedAmount: string; creditsNamingCustomer: number; creditsNamingCustomerAmount: string;
+  creditsLoan: number; creditsLoanAmount: string;
 }>;
 
 export type BankStatement = {
@@ -113,7 +115,9 @@ export type BankTransaction = {
   balance: string | null;
   kind: string | null;
   kindLabel: string | null;
-  outcome: 'MATCHED' | 'UNIDENTIFIED' | 'OWN_TRANSFER' | 'DUPLICATE' | null;
+  // LOAN: a financier's credit tied to the Journey whose loan it is, no receipt on file
+  outcome: 'MATCHED' | 'LOAN' | 'UNIDENTIFIED' | 'OWN_TRANSFER' | 'DUPLICATE' | null;
+  matchedCustomer?: string | null;
   basis: string | null;
   basisLabel: string | null;
   journeyId: string | null;

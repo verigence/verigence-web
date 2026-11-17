@@ -232,6 +232,15 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
             </div>
           ))}
           {!f.loans.length ? <div className="asum-check"><span>Loan</span><span className="p2w-muted">No loan on record</span></div> : null}
+          {f.loanBank ? (
+            <div className="asum-check">
+              <span>Loan amount received in bank<small className="p2w-muted">
+                {money(f.loanBank.received)} · {f.loanBank.credits.map((c) => `${c.date ?? '—'}${c.bankName ? ` ${c.bankName}` : ''}`).join(', ')}
+                {Number(f.loanBank.difference) > 0 ? ` · ${money(f.loanBank.difference)} less than the loan counted`
+                  : Number(f.loanBank.difference) < 0 ? ` · ${money(String(-Number(f.loanBank.difference)))} more than the loan counted` : ''}</small></span>
+              <Conclusion row={{ ...f.loanBank, impact: null }} rules={data.rules} />
+            </div>
+          ) : null}
         </div>
         <dl className="asum-facts">
           <Fact label="Bank approval letter" value={f.bankApprovalOnFile ? 'On file' : 'Not on file'} />

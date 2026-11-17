@@ -69,7 +69,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
   const [view, setView] = useState<View>('journeys');
   const [outcome, setOutcome] = useState<ReceiptOutcome | ''>('NOT_FOUND');
   const [journeyStatus, setJourneyStatus] = useState<JourneyStatus | ''>('');
-  const [creditView, setCreditView] = useState<'UNIDENTIFIED' | 'MATCHED' | ''>('UNIDENTIFIED');
+  const [creditView, setCreditView] = useState<'UNIDENTIFIED' | 'MATCHED' | 'LOAN' | ''>('UNIDENTIFIED');
   // The month as a whole: its statements, or every matched transaction across them (17 Nov 2026).
   const [monthView, setMonthView] = useState<'statements' | 'matched'>('statements');
   const input = useRef<HTMLInputElement>(null);
@@ -91,7 +91,6 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
     enabled: enabled && Boolean(selected),
   });
   const dealers = setup.data?.dealers ?? [];
-  const windowDays = setup.data?.windowDays ?? 5;
   const items = statements.data?.items ?? [];
   const current = items.filter((s) => s.status === 'ACTIVE');
   const total = useMemo(() => {
@@ -101,6 +100,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
       verifiedAmount: sum('verifiedAmount'), leftAmount: sum('leftAmount'), journeysVerified: sum('journeysVerified'),
       journeysPartial: sum('journeysPartial'), journeysNotVerified: sum('journeysNotVerified'),
       creditsNamingCustomer: sum('creditsNamingCustomer'), creditsNamingCustomerAmount: sum('creditsNamingCustomerAmount'),
+      creditsLoan: sum('creditsLoan'), creditsLoanAmount: sum('creditsLoanAmount'),
     };
   }, [current]);
 
@@ -183,8 +183,8 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
             <h3>Upload bank statements</h3>
             <p className="p2w-muted">
               The dealership's own account statement, any bank, as downloaded (PDF or Excel). Choose the outlet only when the
-              account is one outlet's. Receipts dated within the statement's period ±{windowDays} days are checked against its
-              credits. Uploading the same account and period again replaces the earlier upload.
+              account is one outlet's. Receipts dated within the statement's transaction dates (first to last) are checked against its
+              credits; a financier's credit with no receipt is tied to the Journey whose loan it is. Uploading the same account and period again replaces the earlier upload.
             </p>
           </div>
           <div
@@ -257,6 +257,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
           <div className="p2du-tile p2du-tile--ok"><span>Journeys fully verified</span><strong>{total.journeysVerified}</strong><small>{rupees(total.verifiedAmount)} verified</small></div>
           <div className="p2du-tile p2du-tile--warn"><span>Partly / not verified</span><strong>{total.journeysPartial} / {total.journeysNotVerified}</strong><small>{rupees(total.leftAmount)} left</small></div>
           <div className="p2du-tile p2du-tile--warn"><span>Money in, no receipt</span><strong>{total.creditsNamingCustomer}</strong><small>{rupees(total.creditsNamingCustomerAmount)} from customers on file</small></div>
+          <div className="p2du-tile p2du-tile--ok"><span>Loans found in bank</span><strong>{total.creditsLoan}</strong><small>{rupees(total.creditsLoanAmount)} with no receipt on file</small></div>
         </div>
 
         {statements.isLoading ? <p className="p2w-muted">Loading…</p> : null}
@@ -410,7 +411,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
               <>
                 <div className="p2du-toolbar">
                   <div className="p2du-switcher p2du-switcher--sm" role="tablist" aria-label="Receipts">
-                    {(['NOT_FOUND', 'AMBIGUOUS', 'OUTSIDE_DATES', 'MATCHED', 'CASH', 'CARD', ''] as (ReceiptOutcome | '')[]).map((o) => (
+                    {(['NOT_FOUND', 'AMBIGUOUS', 'MATCHED', 'CASH', 'CARD', ''] as (ReceiptOutcome | '')[]).map((o) => (
                       <button key={o || 'all'} type="button" role="tab" aria-selected={outcome === o} onClick={() => setOutcome(o)}>
                         {o ? RECEIPT_OUTCOMES[o].label : 'All'}<b>{o ? receiptCounts[o] ?? 0 : d.receipts.length}</b>
                       </button>
@@ -447,7 +448,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
               <>
                 <div className="p2du-toolbar">
                   <div className="p2du-switcher p2du-switcher--sm" role="tablist" aria-label="Credits">
-                    {([['UNIDENTIFIED', 'No receipt'], ['MATCHED', 'Tied to receipt'], ['', 'All']] as const).map(([o, label]) => (
+                    {([['UNIDENTIFIED', 'No receipt'], ['MATCHED', 'Tied to receipt'], ['LOAN', 'Loan of a Journey'], ['', 'All']] as const).map(([o, label]) => (
                       <button key={label} type="button" role="tab" aria-selected={creditView === o} onClick={() => setCreditView(o)}>
                         {label}<b>{o ? creditCounts[o] ?? 0 : credits.length}</b>
                       </button>
@@ -465,7 +466,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
                           <td data-label="Amount" className="num">{rupees(t.amount)}</td>
                           <td data-label="Kind">{t.kindLabel ?? '—'}</td>
                           <td data-label="Result">
-                            {t.outcome === 'MATCHED' && t.journeyId
+                            {(t.outcome === 'MATCHED' || t.outcome === 'LOAN') && t.journeyId
                               ? <><Link className="p2w-link" to={`/p2/journeys/${t.journeyId}/overview`}>{t.journeyReference}</Link>{t.basisLabel ? <><br /><small className="p2w-muted">on {t.basisLabel}</small></> : null}</>
                               : t.outcome === 'OWN_TRANSFER' ? <span className="p2du-tag">Own transfer</span>
                               : t.outcome === 'DUPLICATE' ? <span className="p2du-tag">On another upload</span>

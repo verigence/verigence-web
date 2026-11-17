@@ -237,9 +237,15 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
         {payments.bankVerification ? (
           <div className={payments.bankVerification.bankVerified ? 'is-clear' : payments.bankVerification.status === 'CASH_ONLY' ? '' : 'is-due'}>
             <dt>Bank verification</dt>
-            <dd>{{ BANK_VERIFIED: 'Bank verified', PARTIAL: 'Partly verified', NOT_VERIFIED: 'Not verified', CASH_ONLY: 'Cash only' }[payments.bankVerification.status]}
-              <small className="p2w-muted">{money(payments.bankVerification.verified)} of {money(payments.bankVerification.bankReceipts)} found
-                {Number(payments.bankVerification.left) > 0 ? ` · ${money(payments.bankVerification.left)} left` : ''}</small></dd>
+            {payments.bankVerification.status ? (
+              <dd>{{ BANK_VERIFIED: 'Bank verified', PARTIAL: 'Partly verified', NOT_VERIFIED: 'Not verified', CASH_ONLY: 'Cash only' }[payments.bankVerification.status]}
+                <small className="p2w-muted">{money(payments.bankVerification.verified)} of {money(payments.bankVerification.bankReceipts)} found
+                  {Number(payments.bankVerification.left) > 0 ? ` · ${money(payments.bankVerification.left)} left` : ''}</small></dd>
+            ) : <dd>No bank receipt to verify</dd>}
+            {payments.bankVerification.loans?.length ? (
+              <dd><small className="p2w-muted">Loan in bank: {payments.bankVerification.loans.map((l) =>
+                `${money(l.amount)} on ${l.date ?? '—'}${l.bankName ? ` (${l.bankName})` : ''}${l.receiptOnFile ? '' : ', no receipt on file'}`).join(' · ')}</small></dd>
+            ) : null}
           </div>
         ) : null}
       </dl>

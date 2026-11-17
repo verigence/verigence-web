@@ -180,6 +180,15 @@ const p2MissingDocumentsItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
+// Bookings a Team Lead or Reviewer checked against their papers, and whether the
+// system still shows them the same (product owner 2026-11-17).
+const p2VerifiedBookingsItem: NavItem = {
+  to: '/p2/verified-bookings',
+  label: 'Verified bookings',
+  mark: 'VB',
+  roles: ['TL', 'REVIEWER', 'PM', 'EXECUTIVE'],
+};
+
 // Tasks not tied to a booking, recurring tasks and the daily gate pass task
 // (product owner 2026-10-26). Every operating role receives tasks here.
 const taskManagerItem: NavItem = {
@@ -541,7 +550,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 // Discounts on the invoice that differ from the entitlement, and duplicate bookings.
                 hub('Exceptions', 'XD', [p2DiscountVarianceItem, p2DuplicatesItem]),
                 p2ProjectTrackerItem,
-                hub('Reports', 'XL', [p2JourneyExportItem, p2MissingDocumentsItem, p2LocationChecksItem]),
+                hub('Reports', 'XL', [p2JourneyExportItem, p2MissingDocumentsItem, p2VerifiedBookingsItem, p2LocationChecksItem]),
                 mastersHub,
               ],
         }
@@ -550,14 +559,14 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2ProjectTrackerItem,
             hub('Uploads', 'DR', [p2DriveUploadsItem, p2DataUploadsItem]),
             hub('Tasks & approvals', 'WK', [{ ...taskManagerItem, badge: tmCount }, p2ClosureApprovalsItem]),
-            hub('Reports', 'XL', [p2JourneyExportItem, p2MissingDocumentsItem, p2LocationChecksItem, utilisationItem, diDashboardItem]),
+            hub('Reports', 'XL', [p2JourneyExportItem, p2MissingDocumentsItem, p2VerifiedBookingsItem, p2LocationChecksItem, utilisationItem, diDashboardItem]),
           ] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).
         : role === 'REVIEWER'
           ? { ...p2Group, items: [
-              hub('Review', 'RV', [p2ReviewBoardItem, p2ReviewActivityItem]),
+              hub('Review', 'RV', [p2ReviewBoardItem, p2ReviewActivityItem, p2VerifiedBookingsItem]),
               p2TrackerItem,
               hub('Uploads', 'DR', [p2DriveUploadsItem, p2DataUploadsItem]),
               tasksBadge,

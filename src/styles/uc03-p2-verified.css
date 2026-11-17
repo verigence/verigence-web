@@ -1,0 +1,22 @@
+/* Verified bookings (2026-11-17): the list's change lines and the Journey 360 mark. */
+.vb-changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.vb-changes s {
+  color: var(--cds-text-secondary, #525252);
+}
+
+.vb-chip {
+  border: 0;
+  cursor: pointer;
+}
+
+.vb-dialog {
+  max-width: 40rem;
+}

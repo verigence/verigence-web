@@ -223,8 +223,8 @@ export default function InsuranceDumpsSection({ tenantId, accessToken, months, o
   const r = report.data;
   const totals = (r?.dealers ?? []).reduce((acc, d) => ({
     policies: acc.policies + d.policies, over: acc.over + d.over, noLimit: acc.noLimit + d.noLimit,
-    matched: acc.matched + d.matched, self: acc.self + d.selfButDealer,
-  }), { policies: 0, over: 0, noLimit: 0, matched: 0, self: 0 });
+    matched: acc.matched + d.matched, self: acc.self + d.selfButDealer, notNew: acc.notNew + (d.notNew ?? 0),
+  }), { policies: 0, over: 0, noLimit: 0, matched: 0, self: 0, notNew: 0 });
   const segmentLabel = (code: string) => setup.data?.segments.find((s) => s.code === code)?.label ?? code;
   const ownGrid = new Set(grid.data?.dealersWithOwnGrid ?? []);
   const current = (uploads.data?.uploads ?? []).filter((u) => u.status === 'ACTIVE');
@@ -254,7 +254,7 @@ export default function InsuranceDumpsSection({ tenantId, accessToken, months, o
             <p className="p2w-muted">
               Each dealership's monthly insurance report (Policy Details Report) as it comes, Excel or CSV. The month is read from
               the policies; uploading the same dealership's month again replaces the earlier upload. Policies repeated in the file
-              are counted once.
+              are counted once. The reports read the New policies only (Policy Type); renewals and rollovers are left out.
             </p>
           </div>
           <div
@@ -411,13 +411,13 @@ export default function InsuranceDumpsSection({ tenantId, accessToken, months, o
           ) : null}
         </div>
         <div className="p2du-tiles">
-          <div className="p2du-tile"><span>Policies in the dumps</span><strong>{totals.policies}</strong><small>{current.length} dealership upload{current.length === 1 ? '' : 's'}</small></div>
+          <div className="p2du-tile"><span>New policies in the dumps</span><strong>{totals.policies}</strong><small>{totals.notNew ? `${totals.notNew} not New left out · ` : ''}{current.length} dealership upload{current.length === 1 ? '' : 's'}</small></div>
           <div className="p2du-tile p2du-tile--bad"><span>OD over the agreed limit</span><strong>{totals.over}</strong><small>{totals.noLimit} with no limit in the grid</small></div>
           <div className="p2du-tile"><span>Matched to a journey</span><strong>{totals.matched}</strong><small>by VIN, mobile or name and model</small></div>
           <div className="p2du-tile p2du-tile--warn"><span>Self in Verigence, dealer policy</span><strong>{totals.self}</strong><small>insured by the dealership</small></div>
         </div>
         {report.isLoading ? <p className="p2w-muted">Loading…</p> : null}
-        {r && !totals.policies ? <p className="p2w-empty">No insurance dump uploaded for {monthLabel(month)} yet.</p> : null}
+        {r && !totals.policies ? <p className="p2w-empty">{totals.notNew ? `The dumps of ${monthLabel(month)} carry no New policy (${totals.notNew} of another Policy Type left out).` : `No insurance dump uploaded for ${monthLabel(month)} yet.`}</p> : null}
         {r && totals.policies ? (
           <>
             <div className="p2du-switcher p2du-switcher--sm" role="tablist" aria-label="Report">

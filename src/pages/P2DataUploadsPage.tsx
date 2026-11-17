@@ -10,6 +10,7 @@ import SectionCard from '../components/SectionCard';
 import BankStatementsSection from '../features/uc03-p2/data-uploads/BankStatementsSection';
 import DmsOutletReportSection from '../features/uc03-p2/data-uploads/DmsOutletReportSection';
 import InsuranceDumpsSection from '../features/uc03-p2/data-uploads/InsuranceDumpsSection';
+import SchemeDumpsSection from '../features/uc03-p2/data-uploads/SchemeDumpsSection';
 import {
   DMS_MATCH_BASIS,
   DMS_OUTCOME_LABELS,
@@ -78,8 +79,10 @@ export default function P2DataUploadsPage() {
   // The outlet-wise report of the DMS dumps (product owner 16 Nov 2026): ?type=outlets.
   const typeParam = params.get('type');
   // The monthly insurance dumps and the OD discount grid (product owner 16 Nov 2026): ?type=insurance.
-  type Section = 'dms' | 'outlets' | 'bank' | 'insurance';
-  const section: Section = typeParam === 'bank' || typeParam === 'outlets' || typeParam === 'insurance' ? typeParam : 'dms';
+  // The monthly extended warranty and RSA dumps (product owner 17 Nov 2026): ?type=schemes.
+  type Section = 'dms' | 'outlets' | 'bank' | 'insurance' | 'schemes';
+  const section: Section = typeParam === 'bank' || typeParam === 'outlets' || typeParam === 'insurance' || typeParam === 'schemes'
+    ? typeParam : 'dms';
   const showSection = (next: Section) => {
     const updated = new URLSearchParams(params);
     if (next === 'dms') updated.delete('type'); else updated.set('type', next);
@@ -189,6 +192,8 @@ export default function P2DataUploadsPage() {
           ? "The dealerships' own bank account statements (any bank, PDF or Excel), checked against the payment receipts on file: what is found in the bank, what is not, and per journey what is verified and what is left."
           : section === 'insurance'
             ? "The dealerships' monthly insurance dumps against the month's agreed OD discount grid, and the journeys Verigence shows as Self insurance while the dealership insured them."
+          : section === 'schemes'
+            ? "The dealerships' monthly extended warranty and RSA dumps against the journeys on file: bought and in sync, in the dump but not bought as per Verigence, bought as per Verigence but not in the dump, and in the dump with no journey."
           : section === 'outlets'
             ? "The DMS dumps outlet wise, as at a day: the DMS against Verigence and the PCs' gate register, with the DMS's own grouping of outlets."
             : "The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."}
@@ -203,6 +208,7 @@ export default function P2DataUploadsPage() {
         <button type="button" role="tab" aria-selected={section === 'outlets'} onClick={() => showSection('outlets')}>Outlet report</button>
         <button type="button" role="tab" aria-selected={section === 'bank'} onClick={() => showSection('bank')}>Bank statements</button>
         <button type="button" role="tab" aria-selected={section === 'insurance'} onClick={() => showSection('insurance')}>Insurance</button>
+        <button type="button" role="tab" aria-selected={section === 'schemes'} onClick={() => showSection('schemes')}>EW / RSA</button>
       </div>
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
       {section === 'bank' ? (
@@ -229,6 +235,9 @@ export default function P2DataUploadsPage() {
       ) : null}
       {section === 'insurance' ? (
         <InsuranceDumpsSection tenantId={tenantId} accessToken={accessToken} months={months} onError={setError} />
+      ) : null}
+      {section === 'schemes' ? (
+        <SchemeDumpsSection tenantId={tenantId} accessToken={accessToken} months={months} onError={setError} />
       ) : null}
       {section === 'outlets' ? (
         <DmsOutletReportSection tenantId={tenantId} accessToken={accessToken} today={today} onError={setError} />

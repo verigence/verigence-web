@@ -130,6 +130,27 @@ export type BankStatementDetail = BankStatement & {
   transactions: BankTransaction[];
 };
 
+/** A receipt found in the bank, with its journey and the bank credit(s) it was tied to. */
+export type MatchedTransaction = {
+  dealerId: string;
+  dealerName: string;
+  outletName: string | null;
+  journeyId: string;
+  journeyReference: string | null;
+  customer: string | null;
+  source: 'RECEIPT' | 'LEDGER';
+  receiptKey: string;
+  receiptNumber: string | null;
+  receiptDate: string | null;
+  amount: string;
+  mode: string | null;
+  reference: string | null;
+  basis: string | null;
+  basisLabel: string | null;
+  credits: { statementId: string; bankName: string | null; accountNumber: string | null; date: string | null;
+    amount: string; narration: string | null; reference: string | null; kind: string | null; kindLabel: string | null }[];
+};
+
 export const RECEIPT_OUTCOMES: Record<ReceiptOutcome, { label: string; tone: 'ok' | 'warn' | 'bad' | 'open' }> = {
   NOT_FOUND: { label: 'Not found in bank', tone: 'bad' },
   AMBIGUOUS: { label: 'Several possible credits', tone: 'warn' },
@@ -157,6 +178,17 @@ export function listBankStatements(tenantId: string, month: string, accessToken?
   if (dealerId) query.set('dealer_id', dealerId);
   return auditCoreRequest<{ month: string; items: BankStatement[] }>(`${base(tenantId)}/bank-statements?${query}`,
     { accessToken, cache: 'no-store' });
+}
+
+/**
+ * The month's matched transactions in one list (product owner 17 Nov 2026): every receipt found
+ * in the bank across the month's current statements, each with its journey and bank credit.
+ */
+export function listMatchedTransactions(tenantId: string, month: string, accessToken?: string, dealerId?: string) {
+  const query = new URLSearchParams({ month });
+  if (dealerId) query.set('dealer_id', dealerId);
+  return auditCoreRequest<{ month: string; statements: number; count: number; amount: string; items: MatchedTransaction[] }>(
+    `${base(tenantId)}/bank-statements/matched?${query}`, { accessToken, cache: 'no-store' });
 }
 
 export function getBankStatement(tenantId: string, statementId: string, accessToken?: string) {

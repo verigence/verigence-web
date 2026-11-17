@@ -5,7 +5,8 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
  * each dealership's Mahindra "Policy Details Report" for a month (.xlsx or .csv); the month's
  * grid of agreed OD discount (per segment for 1 year and 3+3, plus model additions), keyed in or
  * uploaded as Excel; and two reports -- policies over the agreed OD discount, and journeys
- * Verigence shows as Self insurance while the dealership's dump carries the policy.
+ * Verigence shows as Self insurance while the dealership's dump carries the policy. Both read the
+ * New policies only (Policy Type; product owner 17 Nov 2026).
  * Audit Core /p2/v1/tenants/{t}/insurance-dumps.
  */
 
@@ -67,8 +68,9 @@ type PolicyRow = {
 export type InsuranceReport = {
   month: string;
   gridSet: boolean;
+  /** policies and every count are of New policies only (17 Nov 2026); notNew were left out (renewals, rollovers). */
   dealers: { dealerId: string; dealerName: string; policies: number; over: number; within: number; noLimit: number;
-    matched: number; selfButDealer: number }[];
+    matched: number; selfButDealer: number; notNew?: number }[];
   odOverLimit: (PolicyRow & { segmentLimit: number | null; modelExtra: number | null; allowed: number; excess: number })[];
   noLimit: (PolicyRow & { reason: string })[];
   selfButDealer: (PolicyRow & { journeyCustomer: string | null; decidedBy: string | null; decidedByLabel: string | null })[];

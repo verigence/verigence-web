@@ -11,6 +11,7 @@ import {
   getBankSetup,
   getBankStatement,
   listBankStatements,
+  listMatchedTransactions,
   rematchBankStatement,
   rupees,
   uploadBankStatement,
@@ -69,12 +70,19 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
   const [outcome, setOutcome] = useState<ReceiptOutcome | ''>('NOT_FOUND');
   const [journeyStatus, setJourneyStatus] = useState<JourneyStatus | ''>('');
   const [creditView, setCreditView] = useState<'UNIDENTIFIED' | 'MATCHED' | ''>('UNIDENTIFIED');
+  // The month as a whole: its statements, or every matched transaction across them (17 Nov 2026).
+  const [monthView, setMonthView] = useState<'statements' | 'matched'>('statements');
   const input = useRef<HTMLInputElement>(null);
 
   const setup = useQuery({ queryKey: ['bank-setup', tenantId], queryFn: () => getBankSetup(tenantId!, accessToken), enabled });
   const statements = useQuery({
     queryKey: ['bank-statements', tenantId, month, dealerId],
     queryFn: () => listBankStatements(tenantId!, month, accessToken, dealerId || undefined),
+    enabled,
+  });
+  const matched = useQuery({
+    queryKey: ['bank-matched', tenantId, month, dealerId],
+    queryFn: () => listMatchedTransactions(tenantId!, month, accessToken, dealerId || undefined),
     enabled,
   });
   const detail = useQuery({
@@ -130,7 +138,10 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
       }
     }
     setBusy(false);
-    await queryClient.invalidateQueries({ queryKey: ['bank-statements', tenantId] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['bank-statements', tenantId] }),
+      queryClient.invalidateQueries({ queryKey: ['bank-matched', tenantId] }),
+    ]);
   };
   const exportExcel = async (statementId?: string) => {
     onError(null);
@@ -148,6 +159,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bank-statements', tenantId] }),
         queryClient.invalidateQueries({ queryKey: ['bank-statement', tenantId] }),
+        queryClient.invalidateQueries({ queryKey: ['bank-matched', tenantId] }),
       ]);
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Could not be checked again.');
@@ -250,6 +262,51 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
         {statements.isLoading ? <p className="p2w-muted">Loading…</p> : null}
         {statements.data && !items.length ? <p className="p2w-empty">No bank statement uploaded for {monthLabel(month)} yet.</p> : null}
         {items.length ? (
+          <div className="p2du-switcher p2du-switcher--sm" role="tablist" aria-label="Month view">
+            <button type="button" role="tab" aria-selected={monthView === 'statements'} onClick={() => setMonthView('statements')}>Statements<b>{current.length}</b></button>
+            <button type="button" role="tab" aria-selected={monthView === 'matched'} onClick={() => setMonthView('matched')}>Matched transactions<b>{matched.data?.count ?? total.matched}</b></button>
+          </div>
+        ) : null}
+        {items.length && monthView === 'matched' ? (
+          <div className="p2du-scroll">
+            {matched.isLoading ? <p className="p2w-muted">Loading…</p> : null}
+            {matched.isError ? <p className="p2w-empty">{matched.error instanceof Error ? matched.error.message : 'Not available.'}</p> : null}
+            {matched.data && !matched.data.items.length ? <p className="p2w-empty">No receipt is tied to a bank credit on the statements of {monthLabel(month)} yet.</p> : null}
+            {matched.data?.items.length ? (
+              <>
+                <p className="p2w-muted">
+                  {matched.data.count} receipt{matched.data.count === 1 ? '' : 's'} found in the bank, {rupees(matched.data.amount)} in all,
+                  across {matched.data.statements} current statement{matched.data.statements === 1 ? '' : 's'}. Each opens its Journey 360.
+                </p>
+                <table className="p2du-table p2du-table--stack">
+                  <thead>
+                    <tr><th>Journey</th><th>Dealership · outlet</th><th>Receipt</th><th className="num">Amount</th><th>Matched on</th><th>Bank credit</th></tr>
+                  </thead>
+                  <tbody>
+                    {matched.data.items.map((r) => (
+                      <tr key={`${r.journeyId}:${r.receiptKey}`}>
+                        <td data-label="Journey"><Link className="p2w-link" to={`/p2/journeys/${r.journeyId}/overview`}>{r.journeyReference ?? 'Journey'}</Link><br /><small className="p2w-muted">{r.customer ?? ''}</small></td>
+                        <td data-label="Dealership">{r.dealerName}<br /><small className="p2w-muted">{r.outletName ?? ''}</small></td>
+                        <td data-label="Receipt">{r.receiptNumber ?? (r.source === 'LEDGER' ? 'Customer ledger / NDC' : '—')}<br /><small className="p2w-muted">{day(r.receiptDate)}{r.mode ? ` · ${r.mode}` : ''}{r.reference ? ` · ${r.reference}` : ''}</small></td>
+                        <td data-label="Amount" className="num">{rupees(r.amount)}</td>
+                        <td data-label="Matched on"><span className="p2du-tag p2du-tag--ok">{r.basisLabel ?? 'Matched'}</span></td>
+                        <td data-label="Bank credit">
+                          {r.credits.map((c, i) => (
+                            <div key={`${c.statementId}:${i}`}>
+                              {c.bankName ?? 'Bank'} {c.accountNumber ?? ''} · {day(c.date)}{r.credits.length > 1 ? ` · ${rupees(c.amount)}` : ''}
+                              <br /><small className="p2w-muted">{c.narration ?? ''}</small>
+                            </div>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {items.length && monthView === 'statements' ? (
           <div className="p2du-scroll">
             <table className="p2du-table">
               <thead>
@@ -282,7 +339,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
           </div>
         ) : null}
 
-        {selected && d ? (
+        {selected && d && monthView === 'statements' ? (
           <div className="p2du-panel">
             <header>
               <div>

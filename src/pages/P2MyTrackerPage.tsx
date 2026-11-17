@@ -125,7 +125,7 @@ function PcDateTable({ rows, totals, showOutlets }: { rows: PcRow[]; totals: PcF
             <th>{totals.journeysUploaded}</th><th>{totals.bookingsUploaded}</th><th>{totals.deliveriesUpdated}</th>
             <th>{totals.duplicatesDeleted ?? 0}</th>
             <th>{totals.journeysCompleted}</th>
-            <th>{totals.gateRegisterUploaded} of {totals.gateRegisterDays}</th>
+            <th>{registerSummary(totals, null)}</th>
             <th>{totals.pendingDeliveryFiles}</th><th>{totals.tasksWorked}</th><th>{totals.tasksClosed}</th>
           </tr>
         </tfoot>
@@ -333,7 +333,12 @@ export default function P2MyTrackerPage() {
           {data?.role === 'PC' && data.outlets.length ? (
             <>
               <div className="p2mw-tiles">
-                <Tile label="Journeys uploaded" value={data.totals.journeysUploaded} hint={`${data.totals.bookingsUploaded} bookings · ${data.totals.deliveriesUpdated} deliveries`} />
+                {/* The chosen period, summed (product owner 2026-11-17: a date range sums up the bookings,
+                    deliveries and gate register entries). */}
+                <Tile label="Bookings" value={data.totals.bookingsUploaded} hint="booking files uploaded" />
+                <Tile label="Deliveries" value={data.totals.deliveriesUpdated} hint="delivery files uploaded" />
+                <Tile label="Gate register entries" value={data.totals.registerTotal}
+                  hint={`${data.totals.registerIntimated} intimated · ${data.totals.uploadedInTool} in tool`} />
                 <Tile label="Journeys completed" value={data.totals.journeysCompleted} hint="delivery files closed" />
                 <Tile label="Duplicates deleted" value={data.totals.duplicatesDeleted ?? 0} hint="same file uploaded again"
                   tone={data.totals.duplicatesDeleted ? 'warn' : undefined} />

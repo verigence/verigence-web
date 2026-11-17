@@ -139,6 +139,14 @@ export function GateRegisterTable({ outlets, tenantId, accessToken }: {
     }
   }
 
+  const all = dates.flatMap(([, { rows }]) => rows.map((r) => r.day));
+  const sum = {
+    days: all.length, uploaded: all.filter((d) => d.gatePassId).length,
+    total: all.reduce((n, d) => n + (d.total ?? 0), 0), intimated: all.reduce((n, d) => n + (d.intimated ?? 0), 0),
+    inTool: all.reduce((n, d) => n + d.uploadedInTool, 0), pending: all.reduce((n, d) => n + (d.pendingWithPc ?? 0), 0),
+    notIntimated: all.reduce((n, d) => n + (d.notIntimated ?? 0), 0),
+  };
+
   if (!dates.length) return <p className="p2w-muted">No gate register day in this period.</p>;
   return (
     <>
@@ -186,6 +194,15 @@ export function GateRegisterTable({ outlets, tenantId, accessToken }: {
                 );
               }))}
           </tbody>
+          {/* The period, summed (product owner 2026-11-17). */}
+          <tfoot>
+            <tr>
+              <th colSpan={2}>Total</th>
+              <th>{sum.uploaded} of {sum.days} uploaded</th>
+              <th>{sum.total}</th><th>{sum.intimated}</th><th>{sum.inTool}</th>
+              <th>{sum.pending}</th><th>{sum.notIntimated}</th><th />
+            </tr>
+          </tfoot>
         </table>
       </div>
     </>

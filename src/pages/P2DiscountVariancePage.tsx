@@ -25,6 +25,9 @@ const VIEWS: { view: View; label: string; amount: string; count: string; empty: 
   { view: 'inhouse', label: 'Over unless in-house', amount: 'Over if insurance / EW not in-house',
     count: 'Dealer discounts within a higher grid tier',
     empty: 'No dealer discount here depends on in-house insurance or EW.' },
+  { view: 'doubt', label: 'NDC reading in doubt', amount: 'Over, if the NDC was read right',
+    count: 'Discounts read from an NDC that does not add up',
+    empty: 'No discount here is read from an NDC that does not add up.' },
   { view: 'unknown', label: 'Entitlement unknown', amount: 'Given, nothing to compare with', count: 'Discounts with no master',
     empty: 'Every discount here has a master to compare with.' },
 ];
@@ -132,7 +135,7 @@ export default function P2DiscountVariancePage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Excess discount"
-        description="Discounts compared line by line with their entitlement, read from the billing document (NDC / cost sheet, or invoice), never the booking form. An accessories kit given as cash, and a discount with no master to compare with, are listed apart."
+        description="Discounts compared line by line with their entitlement, read from the billing document (NDC / cost sheet, or invoice), never the booking form. An accessories kit given as cash, a discount read from an NDC that does not add up, and a discount with no master to compare with, are listed apart."
       />
 
       {query.isLoading && <div className="xd-skeleton" aria-busy="true">Loading excess discounts…</div>}
@@ -278,7 +281,7 @@ export default function P2DiscountVariancePage() {
                       {header('discount', 'Discount type')}
                       {view === 'unknown' ? <th scope="col">Why there is nothing to compare with</th> : header('entitled', 'Entitled', true)}
                       {header('given', 'Given', true)}
-                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : 'Excess', true)}
+                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : view === 'doubt' ? 'Over if read right' : 'Excess', true)}
                       <th scope="col" aria-label="Open" />
                     </tr>
                   </thead>
@@ -315,10 +318,10 @@ export default function P2DiscountVariancePage() {
                             : item.givenDocument ? <span className="xd-secondary">{item.givenDocument}</span> : null}
                         </td>
                         {view === 'unknown' ? null : (
-                          <td data-label={view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : 'Excess'}
-                              className={`is-num ${view === 'kit' || view === 'inhouse' ? 'xd-kit' : 'xd-excess'}`}>
+                          <td data-label={view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : view === 'doubt' ? 'Over if read right' : 'Excess'}
+                              className={`is-num ${view === 'kit' || view === 'inhouse' || view === 'doubt' ? 'xd-kit' : 'xd-excess'}`}>
                             {rupees(excessOf(item), 2)}
-                            {view === 'inhouse' && item.reason ? <span className="xd-secondary">{item.reason}</span> : null}
+                            {(view === 'inhouse' || view === 'doubt') && item.reason ? <span className="xd-secondary">{item.reason}</span> : null}
                           </td>
                         )}
                         <td className="xd-actions">

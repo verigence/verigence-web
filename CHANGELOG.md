@@ -13,6 +13,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - **Verified bookings** (Team Lead and Reviewer): in Journey 360, **Mark as verified** keeps a booking's figures once you have checked them against its papers (with a comment on what you checked). Every night, after each change to Verigence and on **Compare now**, the system works them out again and shows Matches, Changed by the system, or Papers changed (verify again), with the figures that moved. The list is under Reports (Review for Reviewers); PM and Executive can see it.
 - **Data uploads – EW / RSA** (new tab, Team Lead and Reviewer upload): upload each dealership's monthly extended warranty and RSA dumps (Excel or CSV). Verigence finds each vehicle's journey by chassis, DMS customer id or registration number and shows four lists: bought and in sync, in the dump but not bought as per Verigence, bought as per Verigence but not in the dump, and in the dump with no journey in Verigence. Schemes sold by service on older vehicles are counted apart. **Check again** re-reads the journeys; it also runs every night. Export to Excel has every list.
 - **Bank statements – Matched transactions**: one list for the month of every receipt found in the bank across all statements, with the journey (opens Journey 360), the receipt, what it was matched on and the bank credit. The Excel export has the same list as **Found in bank**.
@@ -33,6 +34,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.8.0] - 2026-11-15
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - **Sign in to SevaSutra from the Verigence app**: on a phone with both apps, SevaSutra's sign-in page has **Sign in with the Verigence app**. The Verigence app opens and asks "Sign in to SevaSutra as …?"; press **Continue to SevaSutra** and SevaSutra opens signed in, with no password typed. If you are not signed in to the Verigence app, you sign in there first. Your password is never passed to SevaSutra.
 - **Project Administration – Sync with SevaSutra** (Super Admin): SevaSutra now reads a service-audit Project's dealers, outlets and people from Verigence once a day (8:10 am) instead of every five minutes. After a change, press **Sync with SevaSutra** on the Project's SevaSutra instance and it reads within a minute.
 - **System health – Jobs** (new tab, SuperAdmin only): every job the system runs on a clock in one list. The daily jobs (day-end clean-up, nightly review, data archive) and each Project's Google Drive run show the time they run at, when they last ran, and a time box with **Save** to change it; the page also says which jobs run all day, which other modules run their own, when the system sleeps at night, and who changed a time.
@@ -40,6 +42,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.7.0] - 2026-11-12
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - **Drive uploads** (new page, for PCs, Team Leads, PMs, Executives and Reviewers): the files PCs keep in the Project's Google Drive, one folder per customer (Name-OTF, or Name-Mobile where there is no OTF). The page shows the connected Google account with a link to the Project's folder, the files waiting to be taken, and every run with its report: files processed, pages read, pages to scan again with the page number and the reason, and manual verification tasks opened. A PC presses **Submit Drive uploads** for their outlet; a Team Lead and above takes a day's files for an outlet or all of theirs. Files are also taken every day at the time the Project has set (9:00 pm to begin with). An administrator connects the Google account here and, under **Settings**, sets when the daily run starts and whether it runs at all, which outlets use Drive (only they get a folder and are covered by the daily run), and how many days a customer's folder stays in Drive after the booking is closed, before it is moved to the Archive folder (nothing is deleted).
 - **Drive uploads – a PC's own folders**: a PC presses **Get my Drive folders** once; the folder of each outlet they upload for is shared with their own Google account (the email they sign in to Verigence with), Google emails them the link, and the page lists the folders with **Open in Drive**. PCs no longer need the password of the Project's Google account. An administrator sees, under **PCs and their folders**, which Google account each PC's folders are shared with. Each outlet has one folder; an approval given on Google's screen for another Project says so.
 - **Project Tracker**: a **Drive uploads** view with the files received from Drive, taken, waiting, duplicates, not taken, pages read, pages to scan again and manual verification tasks, per dealership, outlet and PC.
@@ -89,6 +92,7 @@ The app's build number is added by the release workflow and is not written here.
 - Time on Verigence counts real work only: a minute is active when there was a click, tap or key in it or in the reading window before it (3 minutes by default — the time spent reading a screen after a click). Scrolling or the mouse wheel alone no longer makes a minute active: it is counted as idle and shown apart as "scrolling only". On a phone, a touch counts as a tap only when the finger comes up where it went down (within 10 px, within 1 second); a touch that starts a scroll is not a tap. The app reads the reading window from the server when it starts, every 3 hours and with every minute's send, and uses 3 minutes when it cannot.
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - SuperAdmin System health: set the reading window of time on Verigence (1 to 10 minutes) for every Project or one Project; every change is listed with who made it and when.
 - DealGuard **Project Tracker** for Team Leads, Project Managers and Executives: the situation of the whole Project for a day, a week (Monday to Sunday) or a calendar month. Summary tiles at the top, then a table by dealership, outlet and PC (open a row to see the next level, click a column to sort) with gate pass (registers due, on time, late, missing, the counts entered), files uploaded (journeys, bookings, deliveries, files, pages), files closed (delivery files closed, closed by Reviewer), tasks (raised, closed by the PC, by the Team Lead / PM / Executive or by the system, open and overdue) and recurring tasks (one set of columns per schedule, the daily gate pass today; new schedules such as a DMS or payment reconciliation appear on their own). Figures link to Daily gate pass, Task Queue, Task Manager and Bookings & Deliveries. The period is in the page address, so a link opens the same view.
 - Daily processing opens a given day from a link (`?day=`).
@@ -114,6 +118,7 @@ The app's build number is added by the release workflow and is not written here.
 - Leave taken in the previous 6 weeks (shown when applying and to the approver) now counts only days already taken: approved leave still to come is left out.
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - myHR holidays: HR or SuperAdmin can make a Sunday a working day for chosen projects (or outlets, or everyone). Choose **Working Sunday** when adding a holiday; only Sundays are allowed. For those people it is a normal working day: Today and the attendance calendar say "Working Sunday", the usual check-in rules apply, and it counts for leave, payroll and earned leave. Everyone else keeps the Sunday off. A working Sunday and a holiday for the same people on the same date are refused.
 - Leave: when someone applies for leave, they and their approver see how many paid and unpaid leave days were taken in the 6 weeks before the leave's first day (Team Lead, Project Manager and HR approval lists, and HR's view of a person's pending requests).
 
@@ -123,6 +128,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.6.2] - 2026-11-07
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - myHR holidays (HR or SuperAdmin, Settings → Holidays): a holiday can now be a full day or a half day (morning off or afternoon off), and for the whole company or for chosen projects and outlets. The list shows each holiday's day part and who it applies to; removing one asks first and keeps it in the history.
 - On a half-day holiday the other half is a working day. Today's attendance card says which half is off and from when (for example "Half-day holiday (afternoon off from 14:00): Diwali eve") and shows that day's times. The attendance calendar marks the day "AM off" or "PM off".
 - Working the holiday half goes to the Team Lead for approval and earns half a comp-off day.
@@ -150,6 +156,7 @@ The app's build number is added by the release workflow and is not written here.
 - A page refused for image quality (faded, blurred, small) that you can read can now be sent as it is: press "… is fine — read it" on the task or the document card, or upload the same page again. It is read, and the scan scores are kept.
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 
 - Night control: from 20:00 to 08:30 (India time) Journey 360 is closed and no Verigence file can be downloaded, unless SuperAdmin has given you access. Journey 360 shows "Night Mode On" instead of the page, and a download shows a small "Night Mode On" note. SuperAdmin and Executive are never blocked. The Android app can always be downloaded from the app download page.
 - Night Control (SuperAdmin, under Administration): switch night control on or off for each feature (Journey 360, file downloads) and set its start and end times; see who has access at night; give a person access to one feature or all of them with a note; remove access with a note. Access stays until it is removed.
@@ -180,6 +187,7 @@ The app's build number is added by the release workflow and is not written here.
 - Rejected attendance days show as "Half day (rejected)".
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - myHR Settings, Access pauses (SuperAdmin): Team Leads paused for approvals left waiting past Monday 09:00, with the late requests, and Restore access with a note.
 - DealGuard, for PCs: while DealGuard is open, the app checks where the phone or computer is, at random moments 1 to 3 times an hour, only between 10:00 and 19:30 IST. Audit Core works out how far that is from the nearest outlet the PC is assigned to. Every check is recorded. My HR pages never check.
 - DealGuard, for PCs: when a check finds the PC more than 500 m from their outlets, a friendly note says so — for example "You seem to be about 3.2 km from Utkal Mahindra – CDA. DealGuard is meant to be used at your outlet during working hours." with an OK button. Nothing is asked and work is not stopped. When the location is not clear (a computer's location is often kilometres off) or is not allowed, nothing is shown; the check is only recorded.
@@ -198,6 +206,7 @@ The app's build number is added by the release workflow and is not written here.
 - Profile: only HR can change a person's photo (it is the face attendance photos are compared with). The "Change photo" button is gone from My Profile; HR changes it on the employee's page.
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Attendance: when the photo does not look like the person's profile picture, a friendly note says so after check-in or check-out ("You don't look quite like your profile picture…"). The attendance is still recorded; HR still sees the flag.
 - My leave: paid leave is earned from attendance — 1 day for every 22 days of attendance, up to 3 days held (both set by HR). There is no Sick or Earned leave any more. The page shows how many days of attendance count so far, when the count is paused, and what each completed block earned or lost at the cap.
 - My leave: Special occasion leave (with its own yearly quota; say what the occasion is) and Comp-off (earned by approved work on a Sunday or holiday).
@@ -217,6 +226,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.4.0] - 2026-10-30
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Journey 360: an "Audit summary" tab, prepared when opened. One page with every financial fact of the journey: what the customer owes, benefits given, products sold (insurance, extended warranty, RSA, FASTag, accessories), how it was paid (receipts, loan, bank statement check, exchange, scrappage, credit notes), the settlement and the documents that disagree. Each line has a conclusion and the rule it rests on, and the journey a verdict: Clean, Exceptions found or Incomplete.
 - Reviewer: "Complete delivery" on a booking completes a delivery the rules have not, with a reason. What was still missing is recorded, and the Team Lead reviews it next.
 
@@ -238,6 +248,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.3.2] - 2026-10-27
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Daily gate pass: up to 4 photos for one gate pass, for a gate-out register that runs over several pages. Each page opens on its own.
 - Daily gate pass on Monday: the PC says whether Sunday and Monday are on the same photo or on separate photos; with separate photos, each day gets its own photos and its own counts.
 
@@ -247,6 +258,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.3.1] - 2026-10-27
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Daily gate pass: the Team Lead (outlets under them), PM and Executive see all onsite outlets together, with As per Gate out Register, Updated in Tool, Pending due to Client and Pending due to PC, by day and in total.
 - Daily gate pass: a photo already taken can be uploaded instead of opening the camera.
 
@@ -257,6 +269,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.3.0] - 2026-10-27
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Task Manager: tasks not tied to a booking, raised to the right roles (PC, TL, PM, CRM, Reviewer) with an expected time to close, reviewed by the person who raised them. Executives and SuperAdmin can set up recurring tasks.
 - Daily gate pass task for each outlet, closed by the system once the gate pass is finished.
 - Task Queue has two classifications: Journey tasks (grouped by document) and Task Manager tasks, with one badge for both.
@@ -272,6 +285,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.2.0] - 2026-10-26
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Daily Gate Pass screen: the Process Coordinator uploads the day's gate passes and reconciles them, there is a monthly calendar, and the Team Lead sees the daily tasks.
 - Daily processing: large uploads are highlighted, the document status is shown per Process Coordinator, uploaded files have links, and the work done is shown per Process Coordinator and Team Lead.
 - A SKU work screen that a Team Lead and a Reviewer both use.
@@ -292,6 +306,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.1.0] - 2026-10-19
 
 ### Added
+- **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
 - Employees page shows how many employees there are, how many are active, and how many have a Verigence login.
 - "Sync with Verigence" on the Employees page creates the missing Verigence logins (five at a time) and links the ones that already exist.
 - Employee status is now Active, Suspended, Terminated or Quit. Only the CEO and SuperAdmin change a status at once. When HR Admin asks for a change, it waits until the CEO approves it. A login is suspended when an employee is no longer active.

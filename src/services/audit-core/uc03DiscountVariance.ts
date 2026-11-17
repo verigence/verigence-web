@@ -7,7 +7,10 @@ import { auditCoreRequest } from './client';
 export type DiscountVarianceStatus =
   'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN' | 'KIT_AS_CASH' | 'OVER_UNLESS_INHOUSE'
   /** FIGURES_DISAGREE (2026-11-14): the statement's figure is contradicted by the Tally ledger -- listed apart, never excess. */
-  | 'FIGURES_DISAGREE';
+  | 'FIGURES_DISAGREE'
+  /** READING_IN_DOUBT (2026-11-17): read from an NDC whose rows do not give its printed totals -- listed apart,
+   *  never excess, until the reading is corrected. */
+  | 'READING_IN_DOUBT';
 
 /** What one document gives for the benefit. */
 export interface DiscountReading { document: string | null; amount: string | null }
@@ -62,7 +65,7 @@ export interface DiscountVarianceItem {
 
 export interface DiscountVarianceResponse {
   items: DiscountVarianceItem[];
-  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; unlessInhouse?: number; figuresDisagree?: number; journeys: number };
+  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; unlessInhouse?: number; figuresDisagree?: number; readingInDoubt?: number; journeys: number };
   notYetCalculated: number;
   toleranceRupees: number;
 }

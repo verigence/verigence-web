@@ -180,7 +180,8 @@ export default function P2DataUploadsPage() {
     }
   };
 
-  const rows = (detail.data?.items ?? []).filter((r) => !outcome || r.outcome === outcome);
+  // "All" is the dump's own rows; Verigence's deliveries it lacks have their own tab.
+  const rows = (detail.data?.items ?? []).filter((r) => (outcome ? r.outcome === outcome : r.outcome !== 'NOT_IN_DMS'));
   const counts = (detail.data?.items ?? []).reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.outcome]: (acc[r.outcome] ?? 0) + 1 }), {});
 
   return (
@@ -400,9 +401,9 @@ export default function P2DataUploadsPage() {
             </header>
             <div className="p2du-toolbar">
               <div className="p2du-switcher" role="tablist" aria-label="Rows">
-                {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL'] : []), 'MATCHED', ...(detail.data.kind === 'BOOKING' ? ['CANCELLED'] : []), ''] as (DmsRowOutcome | '')[]).map((o) => (
+                {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL', 'NOT_IN_DMS'] : []), 'MATCHED', ...(detail.data.kind === 'BOOKING' ? ['CANCELLED'] : []), ''] as (DmsRowOutcome | '')[]).map((o) => (
                   <button key={o || 'all'} type="button" role="tab" aria-selected={outcome === o} onClick={() => setOutcome(o)}>
-                    {o ? DMS_OUTCOME_LABELS[o].label : 'All'}<b>{o ? counts[o] ?? 0 : detail.data!.items.length}</b>
+                    {o ? DMS_OUTCOME_LABELS[o].label : 'All'}<b>{o ? counts[o] ?? 0 : detail.data!.items.length - (counts.NOT_IN_DMS ?? 0)}</b>
                   </button>
                 ))}
               </div>
@@ -419,7 +420,7 @@ export default function P2DataUploadsPage() {
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.rowNo}>
+                      <tr key={r.rowNo ?? `v:${r.journeyId}`}>
                         <td>{day(r.eventDate)}</td>
                         <td>{r.customerName ?? '—'}</td>
                         <td>{r.mobile ?? '—'}</td>
@@ -431,7 +432,9 @@ export default function P2DataUploadsPage() {
                           {r.stage && detail.data!.kind === 'BOOKING' ? <><br /><small className="p2w-muted">DMS: {r.stage}</small></> : null}</td>
                         <td>{r.journeyId
                           ? <><Link className="p2w-link" to={`/p2/journeys/${r.journeyId}/overview`}>{r.journeyReference}</Link>
-                            {r.matchBasis ? <><br /><small className="p2w-muted">on {DMS_MATCH_BASIS[r.matchBasis] ?? r.matchBasis}</small></> : null}</>
+                            {r.outcome === 'NOT_IN_DMS'
+                              ? <><br /><small className="p2w-muted">dated by {(r.datedBy ?? r.matchBasis ?? '').toLowerCase()}</small></>
+                              : r.matchBasis ? <><br /><small className="p2w-muted">on {DMS_MATCH_BASIS[r.matchBasis] ?? r.matchBasis}</small></> : null}</>
                           : '—'}</td>
                       </tr>
                     ))}

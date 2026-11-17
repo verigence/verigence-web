@@ -73,6 +73,8 @@ export type SchemeRow = {
   matchBasis: string | null;
   matchBasisLabel: string | null;
   severalJourneys: boolean;
+  /** Found through the customer the insurance or DMS delivery dump names for the same chassis. */
+  viaOtherDump: boolean;
   verigenceSold: boolean;
   verigenceReason: string | null;
   papersOnFile: boolean;

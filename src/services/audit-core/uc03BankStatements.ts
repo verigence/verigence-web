@@ -3,7 +3,8 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
 /**
  * The dealership's own bank account statements (product owner 14 Nov 2026), uploaded on the
  * Data uploads tab per dealership or per outlet, any bank, PDF or Excel. Audit Core reads every
- * transaction and checks the payment receipts dated within the statement's period +/- 5 days
+ * transaction and checks the payment receipts dated within the statement's transaction dates (product
+ * owner 17 Nov 2026; until then its period +/- 5 days)
  * against its credits: which receipts are found in the bank, which are not, and per journey what
  * is verified and what is left. Audit Core /p2/v1/tenants/{t}/bank-statements.
  */
@@ -26,6 +27,7 @@ export type BankCounts = Partial<{
   journeys: number; journeysVerified: number; journeysPartial: number; journeysNotVerified: number; journeysCashOnly: number;
   verifiedAmount: string; leftAmount: string; credits: number; creditsMatched: number; creditsUnidentified: number;
   creditsUnidentifiedAmount: string; creditsNamingCustomer: number; creditsNamingCustomerAmount: string;
+  creditsLoan: number; creditsLoanAmount: string;
 }>;
 
 export type BankStatement = {
@@ -113,7 +115,9 @@ export type BankTransaction = {
   balance: string | null;
   kind: string | null;
   kindLabel: string | null;
-  outcome: 'MATCHED' | 'UNIDENTIFIED' | 'OWN_TRANSFER' | 'DUPLICATE' | null;
+  // LOAN: a financier's credit tied to the Journey whose loan it is, no receipt on file
+  outcome: 'MATCHED' | 'LOAN' | 'UNIDENTIFIED' | 'OWN_TRANSFER' | 'DUPLICATE' | null;
+  matchedCustomer?: string | null;
   basis: string | null;
   basisLabel: string | null;
   journeyId: string | null;
@@ -189,6 +193,44 @@ export function listMatchedTransactions(tenantId: string, month: string, accessT
   if (dealerId) query.set('dealer_id', dealerId);
   return auditCoreRequest<{ month: string; statements: number; count: number; amount: string; items: MatchedTransaction[] }>(
     `${base(tenantId)}/bank-statements/matched?${query}`, { accessToken, cache: 'no-store' });
+}
+
+/**
+ * Each account's running record (product owner 17 Nov 2026: "keep a record of bank statement
+ * transactions as and when they get loaded"): every transaction of the month once across the
+ * uploads, the days covered and missing, and whether the balances continue between uploads.
+ */
+export type BankAccountCoverage = {
+  coveredDays: number; from: string | null; to: string | null; missing: string[];
+  notYetLoaded: { from: string; to: string } | null;
+};
+export type BankAccount = {
+  account: string; dealerId: string; dealerName: string | null; outletName: string | null;
+  bankName: string | null; accountNumber: string | null; accountHolder: string | null; uploads: number;
+  lastUploadedAtUtc: string; openingBalance: string | null; closingBalance: string | null;
+  transactions: number; credits: number; creditTotal: string; debits: number; debitTotal: string;
+  creditsNoReceipt: number; coverage: BankAccountCoverage;
+  balanceBreaks: { after: string; closing: string; nextOpening: string; difference: string;
+    fileBefore: string; fileAfter: string }[];
+};
+export type BankRegisterRow = {
+  date: string | null; valueDate: string | null; narration: string | null; reference: string | null;
+  debit: string | null; credit: string | null; balance: string | null; result: string | null;
+  basisLabel: string | null; journeyId: string | null; journeyReference: string | null;
+  loadedFrom: string; loadedAtUtc: string;
+};
+
+export function listBankAccounts(tenantId: string, month: string, accessToken?: string, dealerId?: string) {
+  const query = new URLSearchParams({ month });
+  if (dealerId) query.set('dealer_id', dealerId);
+  return auditCoreRequest<{ month: string; items: BankAccount[] }>(`${base(tenantId)}/bank-statements/accounts?${query}`,
+    { accessToken, cache: 'no-store' });
+}
+
+export function getBankAccountRegister(tenantId: string, account: string, month: string, accessToken?: string) {
+  const query = new URLSearchParams({ month, account });
+  return auditCoreRequest<BankAccount & { month: string; rows: BankRegisterRow[] }>(
+    `${base(tenantId)}/bank-statements/accounts/register?${query}`, { accessToken, cache: 'no-store' });
 }
 
 export function getBankStatement(tenantId: string, statementId: string, accessToken?: string) {

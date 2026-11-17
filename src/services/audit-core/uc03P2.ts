@@ -1466,8 +1466,12 @@ export type P2Payments360 = {
   duplicates?: number;
   /** The journey's bank verification against the dealership's bank statements (2026-11-14). */
   bankVerification?: {
-    status: 'BANK_VERIFIED' | 'PARTIAL' | 'NOT_VERIFIED' | 'CASH_ONLY'; bankVerified: boolean;
+    // null: no bank receipt to verify, only a loan credit tied to the Journey
+    status: 'BANK_VERIFIED' | 'PARTIAL' | 'NOT_VERIFIED' | 'CASH_ONLY' | null; bankVerified: boolean;
     bankReceipts: string; verified: string; left: string; cash: string; bankVerifiedAtUtc: string | null;
+    // the financier's credits tied to this Journey's loan on the dealership's statements
+    loans?: { date: string | null; amount: string; narration: string | null; basisLabel: string | null;
+      bankName: string | null; receiptOnFile: boolean }[];
   } | null;
   bankStatement?: {
     lines: P2BankLine[]; creditsTotal: string; matchedTotal: string;
@@ -1561,6 +1565,9 @@ export type P2AuditSummary = {
     bankCheck: P2AuditCheck & { verified: string; cash: string; notFound: string; noStatement: string };
     loans: (P2AuditCheck & { lender: string | null; sanctioned: string | null; disbursed: string | null;
       deliveryOrder: string | null; difference?: string | null })[];
+    /** AS-13: the financier's credits tied to this loan on the dealership's bank statements (17 Nov 2026). */
+    loanBank?: (P2AuditCheck & { received: string; difference?: string | null;
+      credits: { date: string | null; amount: string; bankName: string | null; basisLabel: string | null }[] }) | null;
     bankApprovalOnFile: boolean; deliveryOrderOnFile: boolean;
     exchange: { applicable: boolean | null; bookedValue: string | null; quotedValue: string | null;
       actualValue: string | null; valuationReports: number };

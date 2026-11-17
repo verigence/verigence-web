@@ -37,6 +37,7 @@ const GROUPS: { title: string; columns: Column[] }[] = [
       { key: 'notIntimated', label: 'Not intimated (client)', tone: 'warn' },
       { key: 'deliveryNotUploaded', label: 'Delivery not uploaded', dms: true, tone: 'warn' },
       { key: 'deliveryNotInVerigence', label: 'Not in Verigence', dms: true, tone: 'bad' },
+      { key: 'deliveryNotInDms', label: 'In Verigence, not in dump', tone: 'warn' },
     ],
   },
   {
@@ -198,8 +199,9 @@ export default function DmsOutletReportSection({ tenantId, accessToken, today, o
         {data ? (
           <p className="p2w-muted p2or-foot">
             In Verigence (bookings): booking form date in the period, else the day the booking documents were uploaded
-            ({data.figures.bookingDatedByUpload ?? 0} dated that way). In Verigence (deliveries): delivery files with the
-            vehicle gate pass dated in the period. Pending with PC and not intimated come from the PCs' daily gate register.
+            ({data.figures.bookingDatedByUpload ?? 0} dated that way). In Verigence (deliveries): delivery files dated in the
+            period by the gate pass, else the NDC's delivery date, else the latest payment receipt
+            ({data.figures.deliveryDatedWithoutGatePass ?? 0} without a gate pass), up to the last day the dump covers. Pending with PC and not intimated come from the PCs' daily gate register.
             Cancelled DMS bookings are left out.
           </p>
         ) : null}

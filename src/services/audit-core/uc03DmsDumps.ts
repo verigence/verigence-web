@@ -8,7 +8,9 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
  */
 
 export type DmsDumpKind = 'BOOKING' | 'DELIVERY';
-export type DmsRowOutcome = 'MATCHED' | 'NOT_IN_TOOL' | 'MISSING' | 'CANCELLED';
+// NOT_IN_DMS: not a dump row -- a delivery Journey of the days a delivery dump covers that the
+// dump does not carry (product owner 17 Nov 2026); its date is Verigence's delivery day.
+export type DmsRowOutcome = 'MATCHED' | 'NOT_IN_TOOL' | 'MISSING' | 'CANCELLED' | 'NOT_IN_DMS';
 
 export type DmsUploadType = { key: string; label: string; kind: DmsDumpKind; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' };
 
@@ -40,7 +42,8 @@ export type DmsDump = {
 };
 
 export type DmsDumpRow = {
-  rowNo: number;
+  rowNo: number | null;
+  datedBy?: string;
   kind: DmsDumpKind;
   outcome: DmsRowOutcome;
   matchBasis: string | null;
@@ -77,6 +80,7 @@ export const DMS_OUTCOME_LABELS: Record<DmsRowOutcome, { label: string; tone: 'o
   NOT_IN_TOOL: { label: 'Delivery not uploaded', tone: 'warn' },
   MATCHED: { label: 'Synced', tone: 'ok' },
   CANCELLED: { label: 'Cancelled in DMS', tone: 'open' },
+  NOT_IN_DMS: { label: 'In Verigence, not in dump', tone: 'warn' },
 };
 
 export const DMS_MATCH_BASIS: Record<string, string> = {
@@ -166,7 +170,8 @@ export function kindFromFileName(name: string): DmsDumpKind | undefined {
 export type DmsOutletFigures = Partial<Record<
   | 'bookingDms' | 'bookingSynced' | 'bookingNotInVerigence' | 'bookingCancelled'
   | 'deliveryDump' | 'deliverySynced' | 'deliveryNotUploaded' | 'deliveryNotInVerigence'
-  | 'bookingInVerigence' | 'bookingDatedByUpload' | 'deliveryInVerigence' | 'inscope' | 'outscope' | 'otherDealType'
+  | 'bookingInVerigence' | 'bookingDatedByUpload' | 'deliveryInVerigence' | 'deliveryDatedWithoutGatePass'
+  | 'deliveryNotInDms' | 'inscope' | 'outscope' | 'otherDealType'
   | 'dealTypePending' | 'gateRegister' | 'notIntimated' | 'pendingWithPc' | 'registersMissed' | 'countsPending'
   | 'bookingGap' | 'deliveryGap', number>>;
 

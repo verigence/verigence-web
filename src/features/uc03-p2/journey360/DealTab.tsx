@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 import {
   raiseP2ManagementReferralTask, setP2InsuranceSource, setP2ManagementReferral,
-  type Money, type P2Deal, type P2DealCategory, type P2DealInsurance, type P2DealOpted, type P2DealRow, type P2DiscountRow,
+  type Money, type P2Deal, type P2DealCategory, type P2DealInsurance, type P2DealScrappage, type P2DealOpted, type P2DealRow, type P2DiscountRow,
 } from '../../../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
@@ -305,6 +305,11 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             {row.addOn ? <small className="p2w-muted">Accessories add-on {money(row.addOn)}: posted in the customer ledger beyond the NDC / cost sheet, added to the amount to be received</small> : null}
             {row.notTaken && !row.addOn ? <small className="p2w-muted">{row.invoiced ? 'Invoiced, but not charged on the NDC / cost sheet: not in the standard' : 'Not taken: price master shown for reference, not in the standard'}</small> : null}
             {row.statementOnly ? <small className="p2w-muted">On the NDC / cost sheet only, not on an invoice</small> : null}
+            {row.scrappageConcession ? (
+              <small className="p2w-muted">
+                {`Price master ${money(row.scrappageConcession.masterStandard)} less the scrappage concession ${money(row.scrappageConcession.concession)} (${row.scrappageConcession.source})`}
+              </small>
+            ) : null}
             <Flags flags={row.flags} />
           </button>
         </th>
@@ -338,6 +343,52 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
         </tr>
       ) : null}
     </Fragment>
+  );
+}
+
+/** Scrappage on the deal (product owner 2026-11-17: "he has scrappage
+ * documents, but it never shows in Deal"): the Certificates of Deposit on file,
+ * the rebate the RTO challan prints, the concession taken off the RTO standard
+ * and the scrappage benefits given; a missing certificate is said so. */
+function ScrappageCard({ scrappage, journeyId }: { scrappage: P2DealScrappage; journeyId: string }) {
+  const { concession } = scrappage;
+  return (
+    <section className="j360-card" aria-label="Scrappage">
+      <div className="j360-card__head">
+        <h3 className="j360-h3">Scrappage</h3>
+        {scrappage.codMissing ? (
+          <span className="p2w-chip p2w-chip--warning">Certificate of Deposit missing: asked from the PC</span>
+        ) : null}
+      </div>
+      <dl className="j360-facts">
+        <div>
+          <dt>RTO challan rebate</dt>
+          <dd>{scrappage.challanRebate ? `${money(scrappage.challanRebate)}${scrappage.challanTax ? ` on MV tax ${money(scrappage.challanTax)}` : ''}` : 'None printed'}</dd>
+        </div>
+        <div>
+          <dt>Concession in the RTO standard</dt>
+          <dd>{concession ? `${money(concession.concession)}: ${money(concession.masterStandard)} → ${money(concession.standard)}` : 'Not applied'}</dd>
+        </div>
+        <div>
+          <dt>Scrappage benefits given</dt>
+          <dd>{scrappage.benefits.length ? scrappage.benefits.map((b) => `${b.label ?? humanizeKey(b.key)} ${money(b.amount)}`).join(' · ') : 'None on the NDC'}</dd>
+        </div>
+      </dl>
+      {scrappage.certificates.length ? (
+        <ul className="j360-invoices">
+          {scrappage.certificates.map((cod) => (
+            <li key={cod.documentId}>
+              <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${cod.documentId}`}>
+                {cod.certificateNumber ? `Certificate of Deposit ${cod.certificateNumber}` : 'Certificate of Deposit'}
+              </Link>
+              <span className="p2w-muted">{[cod.variant, cod.holder && `holder ${cod.holder}`,
+                cod.oldVehicleRegistration && `old vehicle ${cod.oldVehicleRegistration}${cod.oldVehicle ? ` (${cod.oldVehicle})` : ''}`,
+                cod.issuedOn && `issued ${cod.issuedOn}`].filter(Boolean).join(' · ')}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="p2w-muted">No Certificate of Deposit on file.</p>}
+    </section>
   );
 }
 
@@ -638,6 +689,8 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
         </p>
       </section>
+
+      {deal.scrappage ? <ScrappageCard scrappage={deal.scrappage} journeyId={journeyId} /> : null}
 
       {billingInvoices.length ? (
         <section className="j360-card" aria-label="Invoices in this sheet">

@@ -126,9 +126,12 @@ export function rematchDmsDump(tenantId: string, dumpId: string, accessToken?: s
     { method: 'POST', accessToken });
 }
 
-export async function downloadDmsReport(tenantId: string, month: string, accessToken?: string, dumpId?: string): Promise<Blob> {
+/** The variance workbook of one day's uploads (``day``, YYYY-MM-DD), one upload, or the month. */
+export async function downloadDmsReport(tenantId: string, month: string, accessToken?: string, dumpId?: string,
+  day?: string): Promise<Blob> {
   const query = new URLSearchParams({ month });
   if (dumpId) query.set('dump_id', dumpId);
+  if (day) query.set('day', day);
   const response = await auditCoreRawRequest(`${base(tenantId)}/dms-dumps/report/file?${query}`, { accessToken });
   return response.blob();
 }

@@ -29,6 +29,7 @@ The app's build number is added by the release workflow and is not written here.
 - **A Team Lead's own attendance requests** (late, early, location, short day and corrections) go to the Project Manager or Executive, never to another Team Lead.
 
 ### Changed
+- **Notifications**: a message about your failed, refused or stuck pages now comes one per booking and starts with the customer's name. Click it to open that booking's document tasks; **Open tasks** and **Journey 360** are under it. A message goes from the list once its pages are sent again or removed, so the list shows only what still needs you. The alert on top of the screen names the same customers, each a link.
 - **Apply for leave**: paid leave and comp-off cannot be chosen when none is available; the form shows how many days are available.
 
 ## [1.8.0] - 2026-11-15

@@ -95,3 +95,37 @@ export function itemLink(item: NotUploaded): string {
   if (item.journeyId) return `/p2/journeys/${item.journeyId}/documents?tab=files`;
   return item.source === 'DRIVE' ? '/p2/drive-uploads' : '/p2/bulk-upload';
 }
+
+/** One's own stuck or failed pages: Audit Core sends one message per booking, named by its customer
+ *  (product owner 2026-11-18: the message did not say which customer or booking it was about). */
+export const DOCUMENTS_ATTENTION = 'MY_DOCUMENTS_ATTENTION';
+
+/** The booking's document tasks: where a failed, refused or stuck page is answered. */
+export function bookingTasksLink(journeyId: string): string {
+  return `/p2/journeys/${journeyId}/tasks?tab=DOCUMENTS`;
+}
+
+export function journey360Link(journeyId: string): string {
+  return `/p2/journeys/${journeyId}/overview`;
+}
+
+export type MessageLinks = {
+  /** Where the message itself goes when clicked. */
+  primary: string;
+  /** The named links under it: the booking's tasks and its Journey 360. */
+  actions: { label: string; to: string }[];
+};
+
+/**
+ * Where a message goes (product owner 2026-11-18: "can you provide it clickable so that it can
+ * directly open up that task or journey 360"): a message about one's pages opens the booking's
+ * document tasks, with Journey 360 beside it; any other message about a booking opens its
+ * Journey 360. A message about no booking has nowhere to go.
+ */
+export function messageLinks(message: Pick<NotificationMessage, 'kind' | 'journeyId'>): MessageLinks | null {
+  if (!message.journeyId) return null;
+  const journey360 = { label: 'Journey 360', to: journey360Link(message.journeyId) };
+  if (message.kind !== DOCUMENTS_ATTENTION) return { primary: journey360.to, actions: [journey360] };
+  const tasks = { label: 'Open tasks', to: bookingTasksLink(message.journeyId) };
+  return { primary: tasks.to, actions: [tasks, journey360] };
+}

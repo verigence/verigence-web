@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import {
   alertMessage,
   dismissedStorageKey,
+  documentsAttentionBookings,
   getTenantAlerts,
   isCriticalAlert,
   isFlashingAlert,
@@ -13,6 +14,7 @@ import {
   unseenAlerts,
   writeDismissed,
 } from '../../services/audit-core/tenantAlerts';
+import { bookingTasksLink } from '../../services/audit-core/notifications';
 import { accessTokenSubject } from '../uc03/projectContext';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -87,6 +89,8 @@ export default function TenantAlertBanner() {
         const journeys = critical
           ? [alert.payload?.newJourney, alert.payload?.existingJourney].filter((j) => j?.journeyId)
           : [];
+        // One's own stuck or failed pages: each booking, by customer, opens its tasks (2026-11-18).
+        const bookings = documentsAttentionBookings(alert);
         return (
           <article key={alert.alertId}
             className={`tenant-alert${critical ? ' tenant-alert--critical' : kept ? ' tenant-alert--kept' : ''}${
@@ -103,6 +107,13 @@ export default function TenantAlertBanner() {
                     <Link key={j!.journeyId} to={`/p2/journeys/${j!.journeyId}/overview`}>
                       {j!.reference || 'Open booking'}{j!.outletName ? ` · ${j!.outletName}` : ''}
                     </Link>
+                  ))}
+                </p>
+              ) : null}
+              {bookings.length ? (
+                <p className="tenant-alert__links">
+                  {bookings.map((b) => (
+                    <Link key={b.journeyId} to={bookingTasksLink(b.journeyId)}>{b.label}</Link>
                   ))}
                 </p>
               ) : null}

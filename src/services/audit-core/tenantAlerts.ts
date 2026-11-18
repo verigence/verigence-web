@@ -18,7 +18,8 @@ import { auditCoreRequest } from './client';
  * for the PCs, Reviewers and Team Leads of both outlets; both PCs' uploads are paused until a
  * Reviewer deletes the duplicate booking (``uploadsBlocked``).
  */
-export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS' | 'DUPLICATE_SAME_DEALERSHIP';
+// DMS_DUMP_UPLOADED (2026-11-18): a dealership's DMS dump is in; its PCs mark their intimations.
+export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS' | 'DUPLICATE_SAME_DEALERSHIP' | 'DMS_DUMP_UPLOADED';
 export type SameFileOutcome =
   | 'DELETED'
   | 'KEPT_NOT_INDIVIDUAL'
@@ -66,6 +67,9 @@ export type TenantAlert = {
     severity?: 'CRITICAL' | string;
     /** Two outlets of one dealership: both PCs' uploads are paused (2026-11-04). */
     uploadsBlocked?: boolean;
+    /** DMS_DUMP_UPLOADED: the screen to open (Booking / Delivery Intimation). */
+    link?: string;
+    dumpKind?: 'BOOKING' | 'DELIVERY' | string;
   };
   publishedAtUtc: string;
   expiresAtUtc: string;

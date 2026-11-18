@@ -15,12 +15,13 @@ import { getMyDisplayName } from '../../../services/security/profile';
 type Step = 'outlet' | 'day' | 'manage' | 'mode' | 'photo' | 'counts' | 'explain' | 'held' | 'done';
 
 type Photo = { blob: Blob; filename: string; url: string; date: string };
-// The numbers the PC reads off the register (product owner 2026-11-02): the total deliveries,
-// and how many of them the dealership intimated to the PC. The tool works out the rest.
+// The numbers the PC reads off the register: the total deliveries. What the dealership intimated
+// to the PC is no longer asked here (product owner 2026-11-18): the PC marks it against the DMS
+// delivery dump in Delivery Intimation.
 // Stock transfer entries (vehicles moved to or from another outlet) are entered too
 // (product owner 2026-11-05: big outlets have them); blank means none. They are not deliveries.
-type Counts = { total: string; intimated: string; transfers: string };
-const EMPTY_COUNTS: Counts = { total: '', intimated: '', transfers: '' };
+type Counts = { total: string; transfers: string };
+const EMPTY_COUNTS: Counts = { total: '', transfers: '' };
 
 function dayName(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -72,11 +73,9 @@ const num = (value: string) => (value.trim() === '' ? NaN : Number(value));
 const validCount = (value: string) => Number.isInteger(num(value)) && num(value) >= 0 && num(value) <= 999;
 const transfersOk = (value: string) => value.trim() === '' || validCount(value);
 const transfers = (value: string) => (value.trim() === '' ? 0 : num(value));
-const countsOk = (c: Counts) => validCount(c.total) && validCount(c.intimated) && num(c.intimated) <= num(c.total)
-  && transfersOk(c.transfers);
+const countsOk = (c: Counts) => validCount(c.total) && transfersOk(c.transfers);
 
 function CountsForm({ value, onChange }: { value: Counts; onChange: (next: Counts) => void }) {
-  const tooMany = validCount(value.total) && validCount(value.intimated) && num(value.intimated) > num(value.total);
   return (
     <>
       <div className="p2gp-counts">
@@ -86,43 +85,30 @@ function CountsForm({ value, onChange }: { value: Counts; onChange: (next: Count
             onChange={(event) => onChange({ ...value, total: event.target.value })} />
         </label>
         <label className="p2gp-count">
-          <span>2. Of these, intimated to you by the dealership</span>
-          <input type="number" inputMode="numeric" min={0} max={999} value={value.intimated}
-            onChange={(event) => onChange({ ...value, intimated: event.target.value })} />
-        </label>
-        <label className="p2gp-count">
-          <span>3. Stock transfer entries on the gate register (vehicles moved to or from another outlet; leave blank if none)</span>
+          <span>2. Stock transfer entries on the gate register (vehicles moved to or from another outlet; leave blank if none)</span>
           <input type="number" inputMode="numeric" min={0} max={999} value={value.transfers}
             onChange={(event) => onChange({ ...value, transfers: event.target.value })} />
         </label>
       </div>
       {!transfersOk(value.transfers) ? <p className="p2w-muted" role="alert">Enter the stock transfers as a whole number.</p> : null}
-      {tooMany ? <p className="p2w-muted" role="alert">Intimated cannot be more than the total on the register.</p> : null}
     </>
   );
 }
 
-/** What the tool made of the two numbers (product owner 2026-11-02). */
+/** What the tool made of the register (product owner 2026-11-18: no question asked). */
 function registerOutcome(res: GatePassCountsResult): string {
-  if (res.intimatedToPc == null) {
-    return 'No divergence found. The vehicle gate passes uploaded match what you reported, and you are good to finish the task.';
-  }
-  const pending = res.pendingWithPc ?? 0;
+  const gap = Math.max((res.declared ?? 0) - (res.deliveryFiles ?? 0), 0);
   return [
     'The gate register is saved and the task is complete.',
-    pending ? `${pending} intimated deliver${pending === 1 ? 'y is' : 'ies are'} still to be uploaded by you, with ${pending === 1 ? 'its' : 'their'} vehicle gate pass.`
-      : 'Every delivery intimated to you is uploaded.',
-    res.taskRaised ? 'A task "Delivery not notified to PC" has been raised for your Team Lead and Reviewer.' : '',
-  ].filter(Boolean).join(' ');
+    gap ? `${gap} of the register's deliveries ${gap === 1 ? 'is' : 'are'} not in the tool yet. Mark the deliveries intimated to you in Delivery Intimation when the dealership's delivery dump is in.`
+      : 'Every delivery on the register is in the tool.',
+  ].join(' ');
 }
 
 function RegisterFigures({ result }: { result: GatePassCountsResult }) {
   const rows: Array<[string, number | null | undefined]> = [
     ['Total on the gate register', result.declared],
-    ['Intimated to you', result.intimatedToPc],
     ['Uploaded in the tool', result.deliveryFiles],
-    ['Pending with you', result.pendingWithPc],
-    ['Not intimated to you', result.notIntimatedToPc],
     ['Stock transfers (not deliveries)', result.gatePass?.stockTransfers],
   ];
   return (
@@ -207,11 +193,9 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   function correctCounts(gp: GatePass) {
     setGatePass(gp);
     setCounts({ total: gp.newDeliveries != null ? String(gp.newDeliveries) : '',
-      intimated: gp.intimatedToPc != null ? String(gp.intimatedToPc) : '',
       transfers: gp.stockTransfers ? String(gp.stockTransfers) : '' });
     setCountsByDay(Object.fromEntries((gp.dayCounts ?? []).map((d) => [d.date, {
-      total: String(d.newDeliveries ?? ''), intimated: d.intimatedToPc != null ? String(d.intimatedToPc) : '',
-      transfers: d.stockTransfers ? String(d.stockTransfers) : '' }])));
+      total: String(d.newDeliveries ?? ''), transfers: d.stockTransfers ? String(d.stockTransfers) : '' }])));
     setEditing(true);
     setError(null);
     setStep('counts');
@@ -393,10 +377,10 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
       const res = await submitGatePassCounts(tenantId, gatePass.gatePassId, perDay ? {
         days: covers.map((date) => {
           const c = countsByDay[date] ?? EMPTY_COUNTS;
-          return { date, newDeliveries: num(c.total), intimatedToPc: num(c.intimated), stockTransfers: transfers(c.transfers) };
+          return { date, newDeliveries: num(c.total), stockTransfers: transfers(c.transfers) };
         }),
       } : {
-        newDeliveries: num(counts.total), intimatedToPc: num(counts.intimated), stockTransfers: transfers(counts.transfers),
+        newDeliveries: num(counts.total), stockTransfers: transfers(counts.transfers),
       }, accessToken);
       setResult(res);
       setGatePass(res.gatePass);
@@ -490,7 +474,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
                 <span>
                   <strong>{gp.outletName}</strong> · {gp.dayLabel ?? gp.businessDate}
                   <span className="p2w-muted">
-                    {' '}· Total {gp.newDeliveries ?? 0}, intimated to you {gp.intimatedToPc ?? '—'}
+                    {' '}· Total {gp.newDeliveries ?? 0}
                     {gp.countsEditCount ? ` · corrected ${gp.countsEditCount}×` : ''}
                   </span>
                 </span>
@@ -644,7 +628,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
             </p>
             <p className="p2w-muted">
               {register.countsSubmitted
-                ? `Numbers entered: ${register.newDeliveries ?? 0} deliveries on the register, ${register.intimatedToPc ?? '—'} intimated to you.`
+                ? `Numbers entered: ${register.newDeliveries ?? 0} deliveries on the register.`
                 : 'The numbers of this register are not entered yet.'}
             </p>
             {confirmReplace ? (
@@ -834,7 +818,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
       {step === 'done' ? (
         <div className="p2gp-step">
           <div className="p2w-alert p2w-alert--success" role="status">{outcome}</div>
-          {result?.intimatedToPc != null ? <RegisterFigures result={result} /> : null}
+          {result ? <RegisterFigures result={result} /> : null}
           <div className="p2gp-actions">
             {gatePass?.countsEditable ? (
               <button type="button" className="p2w-button p2w-button--secondary" onClick={() => correctCounts(gatePass)}>

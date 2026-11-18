@@ -8,15 +8,16 @@ import '../styles/uc03-p2-data-uploads.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import BankStatementsSection from '../features/uc03-p2/data-uploads/BankStatementsSection';
-import DmsOutletReportSection from '../features/uc03-p2/data-uploads/DmsOutletReportSection';
+import DmsOutletMapCard from '../features/uc03-p2/data-uploads/DmsOutletMapCard';
 import InsuranceDumpsSection from '../features/uc03-p2/data-uploads/InsuranceDumpsSection';
 import SchemeDumpsSection from '../features/uc03-p2/data-uploads/SchemeDumpsSection';
+import GenerateDmsReport from '../features/uc03-p2/dms/GenerateDmsReport';
+import IntimationCounter from '../features/uc03-p2/dms/IntimationCounter';
 import {
   DMS_MATCH_BASIS,
   DMS_OUTCOME_LABELS,
   dateFromFileName,
   dealerFromFileName,
-  downloadDmsReport,
   getDmsDump,
   getDmsSetup,
   kindFromFileName,
@@ -43,21 +44,15 @@ function day(value: string | null): string {
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`));
 }
 
-function save(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 /**
  * Data uploads (product owner 13 Nov 2026): one tab for the documents that come daily, weekly or
  * monthly, starting with the dealers' DMS booking and delivery dumps. A Team Lead or Reviewer
  * uploads each dealership's month-to-date report; every row is matched against the journeys on
- * file, the ones not found are listed and exported to Excel, and the journeys found are marked
- * synced.
+ * file and the journeys found are marked synced.
+ *
+ * 18 Nov 2026: the booking and delivery dumps are apart; an upload alerts every PC to mark their
+ * intimations; who has marked how many is shown on demand; the report is no longer made at the
+ * upload but generated (after a confirmation) and kept in Reports, by the Reviewer and above.
  */
 export default function P2DataUploadsPage() {
   const project = useProjectContextStore((s) => s.selectedProject);
@@ -68,7 +63,6 @@ export default function P2DataUploadsPage() {
   const months = useMemo(() => monthsUpTo(currentMonth), [currentMonth]);
   const [month, setMonth] = useState(currentMonth);
   const [dealerId, setDealerId] = useState('');
-  const [kindView, setKindView] = useState<DmsDumpKind | ''>('');
   const [pending, setPending] = useState<Pending[]>([]);
   const [over, setOver] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -76,19 +70,23 @@ export default function P2DataUploadsPage() {
   const [error, setError] = useState<string | null>(null);
   // Bank statements sit beside the DMS dumps (product owner 14 Nov 2026): ?type=bank links there.
   const [params, setParams] = useSearchParams();
-  // The outlet-wise report of the DMS dumps (product owner 16 Nov 2026): ?type=outlets.
   const typeParam = params.get('type');
+  // The booking and delivery dumps apart (product owner 18 Nov 2026): ?type=delivery.
   // The monthly insurance dumps and the OD discount grid (product owner 16 Nov 2026): ?type=insurance.
   // The monthly extended warranty and RSA dumps (product owner 17 Nov 2026): ?type=schemes.
-  type Section = 'dms' | 'outlets' | 'bank' | 'insurance' | 'schemes';
-  const section: Section = typeParam === 'bank' || typeParam === 'outlets' || typeParam === 'insurance' || typeParam === 'schemes'
-    ? typeParam : 'dms';
+  type Section = 'booking' | 'delivery' | 'bank' | 'insurance' | 'schemes';
+  const section: Section = typeParam === 'bank' || typeParam === 'delivery' || typeParam === 'insurance' || typeParam === 'schemes'
+    ? typeParam : 'booking';
+  const dmsKind: DmsDumpKind | null = section === 'booking' ? 'BOOKING' : section === 'delivery' ? 'DELIVERY' : null;
+  const kindView: DmsDumpKind | '' = dmsKind ?? '';
   const showSection = (next: Section) => {
     const updated = new URLSearchParams(params);
-    if (next === 'dms') updated.delete('type'); else updated.set('type', next);
+    if (next === 'booking') updated.delete('type'); else updated.set('type', next);
     setParams(updated, { replace: true });
+    setSelected(null);
     setError(null);
   };
+  const [showMap, setShowMap] = useState(false);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const enabled = Boolean(tenantId && accessToken);
@@ -129,7 +127,8 @@ export default function P2DataUploadsPage() {
       file,
       dealerId: dealerFromFileName(file.name, dealers),
       date: dateFromFileName(file.name) || today,
-      kind: kindFromFileName(file.name) ?? '',
+      // The section says what the file is; the server checks it against the file's columns.
+      kind: dmsKind ?? kindFromFileName(file.name) ?? '',
       state: 'ready',
     }))]);
   };
@@ -156,20 +155,13 @@ export default function P2DataUploadsPage() {
     setBusy(false);
     await queryClient.invalidateQueries({ queryKey: ['dms-dumps', tenantId] });
   };
-  // The download covers one day's uploads (product owner 2026-11-18: it reported every earlier
-  // run of the month): the latest day with a dump by default, any other day on request.
-  const dumpDays = [...new Set((dumps.data?.items ?? []).map((d) => d.businessDate))].sort().reverse();
+  // The report is generated for one day's uploads (product owner 2026-11-18): the latest day with
+  // a dump by default, any other day on request.
+  const dumpDays = [...new Set((dumps.data?.items ?? []).filter((d) => d.status === 'ACTIVE').map((d) => d.businessDate))].sort().reverse();
   const [reportDay, setReportDay] = useState('');
-  const exportDay = reportDay && dumpDays.includes(reportDay) ? reportDay : dumpDays[0] ?? '';
-  const exportExcel = async (dumpId?: string) => {
-    setError(null);
-    try {
-      save(await downloadDmsReport(tenantId!, month, accessToken, dumpId, dumpId ? undefined : exportDay || undefined),
-        `DMS-Dump-Variance_${dumpId ? `${month}_upload` : exportDay || month}.xlsx`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The report could not be downloaded.');
-    }
-  };
+  const generateDay = reportDay && dumpDays.includes(reportDay) ? reportDay : dumpDays[0] ?? '';
+  // Reviewer and above generate it: those who may upload, and PM / Executive.
+  const canGenerate = Boolean(setup.data);
   const recheck = async (dumpId: string) => {
     setBusy(true);
     setError(null);
@@ -201,28 +193,17 @@ export default function P2DataUploadsPage() {
             ? "The dealerships' monthly insurance dumps against the month's agreed OD discount grid, and the journeys Verigence shows as Self insurance while the dealership insured them."
           : section === 'schemes'
             ? "The dealerships' monthly extended warranty and RSA dumps against the journeys on file: bought and in sync, in the dump but not bought as per Verigence, bought as per Verigence but not in the dump, and in the dump with no journey."
-          : section === 'outlets'
-            ? "The DMS dumps outlet wise, as at a day: the DMS against Verigence and the PCs' gate register, with the DMS's own grouping of outlets."
-            : "The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."}
-        actions={section === 'dms' ? (
-          <div className="p2du-export">
-            <label>
-              <span>Report of</span>
-              <select aria-label="Dump day to download" value={exportDay} disabled={!dumpDays.length}
-                onChange={(e) => setReportDay(e.target.value)}>
-                {dumpDays.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </label>
-            <button type="button" className="p2w-button p2w-button--secondary" disabled={!enabled || !exportDay}
-              onClick={() => void exportExcel()}>
-              Export to Excel
-            </button>
-          </div>
+          : section === 'delivery'
+            ? "The dealers' daily DMS delivery reports, matched against the journeys on file (the booking, then the delivery file). Every PC is alerted to mark the deliveries intimated to them; the report is generated afterwards and kept in Reports."
+            : "The dealers' daily DMS booking reports, matched against the journeys on file. Every PC is alerted to mark the bookings intimated to them; the report is generated afterwards and kept in Reports."}
+        actions={dmsKind && canGenerate ? (
+          <GenerateDmsReport tenantId={tenantId} accessToken={accessToken} day={generateDay} days={dumpDays}
+            onDay={setReportDay} onError={setError} />
         ) : undefined}
       />
       <div className="p2du-switcher" role="tablist" aria-label="Upload type">
-        <button type="button" role="tab" aria-selected={section === 'dms'} onClick={() => showSection('dms')}>DMS dumps</button>
-        <button type="button" role="tab" aria-selected={section === 'outlets'} onClick={() => showSection('outlets')}>Outlet report</button>
+        <button type="button" role="tab" aria-selected={section === 'booking'} onClick={() => showSection('booking')}>Booking dump</button>
+        <button type="button" role="tab" aria-selected={section === 'delivery'} onClick={() => showSection('delivery')}>Delivery dump</button>
         <button type="button" role="tab" aria-selected={section === 'bank'} onClick={() => showSection('bank')}>Bank statements</button>
         <button type="button" role="tab" aria-selected={section === 'insurance'} onClick={() => showSection('insurance')}>Insurance</button>
         <button type="button" role="tab" aria-selected={section === 'schemes'} onClick={() => showSection('schemes')}>EW / RSA</button>
@@ -256,16 +237,13 @@ export default function P2DataUploadsPage() {
       {section === 'schemes' ? (
         <SchemeDumpsSection tenantId={tenantId} accessToken={accessToken} months={months} onError={setError} />
       ) : null}
-      {section === 'outlets' ? (
-        <DmsOutletReportSection tenantId={tenantId} accessToken={accessToken} today={today} onError={setError} />
-      ) : null}
-      {section === 'dms' ? (<>
+      {dmsKind ? (<>
       {setup.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{setup.error instanceof Error ? setup.error.message : 'Not available.'}</div> : null}
 
       <SectionCard>
         <div className="p2w-card__title"><h3>What can be uploaded</h3></div>
         <div className="p2du-types">
-          {(setup.data?.types ?? []).map((t) => (
+          {(setup.data?.types ?? []).filter((t) => t.kind === dmsKind).map((t) => (
             <div key={t.key} className="p2du-type">{t.label}<small>{t.frequency === 'DAILY' ? 'Daily · month to date' : t.frequency.toLowerCase()}</small></div>
           ))}
         </div>
@@ -275,7 +253,7 @@ export default function P2DataUploadsPage() {
         <SectionCard>
           <div className="p2w-card__title">
             <h3>Upload</h3>
-            <p className="p2w-muted">Drop all of today's files at once (.xlsx). The dealership, date and type are taken from each file's name and columns; check them before uploading. Uploading the same dealership, type and day again replaces the earlier upload.</p>
+            <p className="p2w-muted">Drop today's {dmsKind === 'BOOKING' ? 'booking' : 'delivery'} files at once (.xlsx). The dealership and date are taken from each file's name; check them before uploading. Uploading the same dealership and day again replaces the earlier upload. The PCs of the dealership are alerted to mark their intimations; no report is made here.</p>
           </div>
           <div
             className={`p2du-drop${over ? ' is-over' : ''}`}
@@ -288,7 +266,7 @@ export default function P2DataUploadsPage() {
             onDrop={onDrop}
           >
             <strong>Drag and drop files here or click to choose</strong>
-            <span className="p2w-muted">DMS booking report · dealer's delivery report · Excel up to 15 MB each</span>
+            <span className="p2w-muted">{dmsKind === 'BOOKING' ? 'DMS booking report' : "Dealer's delivery report"} · Excel up to 15 MB each</span>
             <input ref={input} type="file" accept=".xlsx,.xlsm" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
           </div>
           {pending.length ? (
@@ -302,12 +280,6 @@ export default function P2DataUploadsPage() {
                     onChange={(e) => update(p.id, { dealerId: e.target.value })}>
                     <option value="">Dealership…</option>
                     {dealers.map((d) => <option key={d.dealerId} value={d.dealerId}>{d.dealerName}</option>)}
-                  </select>
-                  <select aria-label="Type" value={p.kind} disabled={p.state === 'done' || p.state === 'uploading'}
-                    onChange={(e) => update(p.id, { kind: e.target.value as DmsDumpKind | '' })}>
-                    <option value="">Read from the file</option>
-                    <option value="BOOKING">Booking dump</option>
-                    <option value="DELIVERY">Delivery dump</option>
                   </select>
                   <input type="date" aria-label="Dump date" value={p.date} max={today || undefined}
                     disabled={p.state === 'done' || p.state === 'uploading'} onChange={(e) => update(p.id, { date: e.target.value })} />
@@ -338,11 +310,14 @@ export default function P2DataUploadsPage() {
           <p className="p2w-muted">The latest dump of each dealership is the month to date.</p>
         </div>
         <div className="p2du-tiles">
-          <div className="p2du-tile"><span>Bookings in DMS</span><strong>{sum('rows', 'BOOKING')}</strong><small>{sum('matched', 'BOOKING')} synced</small></div>
-          <div className="p2du-tile p2du-tile--bad"><span>Bookings not in Verigence</span><strong>{sum('missing', 'BOOKING')}</strong><small>Missing booking</small></div>
-          <div className="p2du-tile"><span>Deliveries in DMS</span><strong>{sum('rows', 'DELIVERY')}</strong><small>{sum('matched', 'DELIVERY')} synced</small></div>
-          <div className="p2du-tile p2du-tile--bad"><span>Deliveries not in Verigence</span><strong>{sum('missing', 'DELIVERY')}</strong><small>No journey at all</small></div>
-          <div className="p2du-tile p2du-tile--warn"><span>Delivery not uploaded</span><strong>{sum('notInTool', 'DELIVERY')}</strong><small>Booking on file, delivery file not</small></div>
+          {dmsKind === 'BOOKING' ? (<>
+            <div className="p2du-tile"><span>Bookings in DMS</span><strong>{sum('rows', 'BOOKING')}</strong><small>{sum('matched', 'BOOKING')} synced</small></div>
+            <div className="p2du-tile p2du-tile--bad"><span>Bookings not in Verigence</span><strong>{sum('missing', 'BOOKING')}</strong><small>Missing booking</small></div>
+          </>) : (<>
+            <div className="p2du-tile"><span>Deliveries in DMS</span><strong>{sum('rows', 'DELIVERY')}</strong><small>{sum('matched', 'DELIVERY')} synced</small></div>
+            <div className="p2du-tile p2du-tile--bad"><span>Deliveries not in Verigence</span><strong>{sum('missing', 'DELIVERY')}</strong><small>No booking either</small></div>
+            <div className="p2du-tile p2du-tile--warn"><span>Delivery not uploaded</span><strong>{sum('notInTool', 'DELIVERY')}</strong><small>Booking on file, delivery file not</small></div>
+          </>)}
         </div>
 
         <div className="p2du-toolbar">
@@ -359,11 +334,7 @@ export default function P2DataUploadsPage() {
               </select>
             </label>
           ) : null}
-          <div className="p2du-switcher" role="tablist" aria-label="Dump type">
-            {([['', 'All'], ['BOOKING', 'Booking'], ['DELIVERY', 'Delivery']] as const).map(([value, label]) => (
-              <button key={label} type="button" role="tab" aria-selected={kindView === value} onClick={() => setKindView(value)}>{label}</button>
-            ))}
-          </div>
+          <button type="button" className="p2w-link" onClick={() => setShowMap(!showMap)}>{showMap ? 'Hide DMS locations' : 'DMS locations'}</button>
         </div>
 
         {dumps.isLoading ? <p className="p2w-muted">Loading…</p> : null}
@@ -410,9 +381,6 @@ export default function P2DataUploadsPage() {
                     Check again
                   </button>
                 ) : null}
-                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => void exportExcel(detail.data!.dumpId)}>
-                  Download this report
-                </button>
               </div>
             </header>
             <div className="p2du-toolbar">
@@ -461,6 +429,8 @@ export default function P2DataUploadsPage() {
           </div>
         ) : selected && detail.isLoading ? <p className="p2w-muted">Loading…</p> : null}
       </SectionCard>
+      {showMap ? <DmsOutletMapCard tenantId={tenantId} accessToken={accessToken} onError={setError} /> : null}
+      <IntimationCounter tenantId={tenantId} accessToken={accessToken} kind={dmsKind} />
       </>) : null}
     </div>
   );

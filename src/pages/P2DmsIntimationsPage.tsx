@@ -1,0 +1,191 @@
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
+import '../styles/uc03-p2.css';
+import '../styles/uc03-p2-workspace.css';
+import '../styles/uc03-p2-data-uploads.css';
+
+import PageHeader from '../components/PageHeader';
+import SectionCard from '../components/SectionCard';
+import type { DmsDumpKind } from '../services/audit-core/uc03DmsDumps';
+import {
+  INTIMATION_STATE_LABELS,
+  claimIntimation,
+  getIntimationSetup,
+  listIntimations,
+  withdrawIntimation,
+  type IntimationItem,
+  type IntimationView,
+} from '../services/audit-core/uc03DmsIntimations';
+import { useProjectContextStore } from '../store/projectContextStore';
+import { useSessionStore } from '../store/sessionStore';
+
+function day(value: string | null | undefined): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`));
+}
+
+/**
+ * Booking / Delivery Intimation (product owner 18 Nov 2026): once a DMS dump is uploaded, the PC
+ * opens this tab, sees the dump's rows of the outlets grouped with theirs in the DMS (the days
+ * since the previous dump by default), searches by customer name, mobile or OTF, and marks the
+ * bookings / deliveries the dealership intimated to them. A row already in Verigence needs no
+ * mark; a mark stays with the booking in later dumps.
+ */
+export default function P2DmsIntimationsPage() {
+  const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
+  const accessToken = useSessionStore((s) => s.accessToken) ?? undefined;
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const kind: DmsDumpKind = params.get('kind') === 'DELIVERY' ? 'DELIVERY' : 'BOOKING';
+  const word = kind === 'BOOKING' ? 'booking' : 'delivery';
+  const [view, setView] = useState<IntimationView>('new');
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  const [busyRow, setBusyRow] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const enabled = Boolean(tenantId && accessToken);
+
+  useEffect(() => {
+    const t = setTimeout(() => setQ(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const setup = useQuery({ queryKey: ['dms-intimation-setup', tenantId], queryFn: () => getIntimationSetup(tenantId!, accessToken), enabled });
+  const dealers = setup.data?.dealers ?? [];
+  const dealerParam = params.get('dealerId') ?? '';
+  const dealerId = dealers.some((d) => d.dealerId === dealerParam) ? dealerParam : dealers[0]?.dealerId ?? '';
+  const dealer = dealers.find((d) => d.dealerId === dealerId);
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value); else next.delete(key);
+    setParams(next, { replace: true });
+  };
+
+  const listKey = ['dms-intimations', tenantId, kind, dealerId, view, q];
+  const list = useQuery({
+    queryKey: listKey,
+    queryFn: () => listIntimations(tenantId!, { kind, dealerId: dealerId || undefined, view, q }, accessToken),
+    enabled: enabled && Boolean(dealerId),
+  });
+
+  const act = async (item: IntimationItem, claim: boolean) => {
+    const key = `${item.dumpId}:${item.rowNo}`;
+    setBusyRow(key);
+    setError(null);
+    try {
+      if (claim) await claimIntimation(tenantId!, item, accessToken);
+      else await withdrawIntimation(tenantId!, item, accessToken);
+      await queryClient.invalidateQueries({ queryKey: ['dms-intimations', tenantId, kind] });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not be saved.');
+    } finally {
+      setBusyRow(null);
+    }
+  };
+
+  const dump = list.data?.dump;
+  const counts = list.data?.counts;
+  const canMark = Boolean(setup.data?.canMark);
+  const views: [IntimationView, string][] = [
+    ['new', dump?.previousDumpDate ? `Since ${day(dump.previousDumpDate)}` : 'This dump'],
+    ['open', 'Earlier, not marked'],
+    ['month', 'Whole month'],
+  ];
+
+  return (
+    <div className="screen-stack p2-screen p2w dmsi">
+      <PageHeader
+        eyebrow="Daily duties"
+        title={kind === 'BOOKING' ? 'Booking Intimation' : 'Delivery Intimation'}
+        description={`Mark the ${word}s of the DMS dump that the dealership intimated to you. A ${word} already in Verigence needs no mark.`}
+      />
+      {/* Booking and Delivery Intimation are the two tabs of the left-pane entry. */}
+      {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
+      {setup.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{setup.error instanceof Error ? setup.error.message : 'Not available.'}</div> : null}
+      {setup.data && !dealers.length ? <p className="p2w-empty">No outlet is mapped to you.</p> : null}
+
+      {dealer ? (
+        <SectionCard>
+          <div className="dmsi-head">
+            {dealers.length > 1 ? (
+              <label>Dealership
+                <select value={dealerId} onChange={(e) => setParam('dealerId', e.target.value)}>
+                  {dealers.map((d) => <option key={d.dealerId} value={d.dealerId}>{d.dealerName}</option>)}
+                </select>
+              </label>
+            ) : <strong>{dealer.dealerName}</strong>}
+            {dealer.groupOutlets.length ? (
+              <span className="p2w-muted">DMS location {dealer.groups.join(', ')}: {dealer.groupOutlets.join(', ')}</span>
+            ) : null}
+            <span className="p2w-muted">
+              {dump ? `Dump of ${day(dump.dumpDate)}${dump.previousDumpDate ? ` · previous ${day(dump.previousDumpDate)}` : ''}` : list.isLoading ? '' : `No ${word} dump yet this month.`}
+            </span>
+          </div>
+          {list.data?.newStates && dump ? (
+            <div className="p2du-tiles">
+              <div className="p2du-tile p2du-tile--bad"><span>Not marked</span><strong>{list.data.newStates.OPEN}</strong><small>in this dump's new rows</small></div>
+              <div className="p2du-tile p2du-tile--warn"><span>Marked intimated</span><strong>{list.data.newStates.INTIMATED}</strong></div>
+              <div className="p2du-tile"><span>In Verigence</span><strong>{list.data.newStates.IN_VERIGENCE}</strong></div>
+            </div>
+          ) : null}
+          <div className="dmsi-tools">
+            <input type="search" className="dmsi-search" value={search} placeholder="Name, mobile or OTF"
+              aria-label="Search the dump" onChange={(e) => setSearch(e.target.value)} />
+            {!q.trim() ? (
+              <div className="p2du-switcher" role="tablist" aria-label="Rows">
+                {views.map(([v, label]) => (
+                  <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}>
+                    {label}<b>{counts?.[v] ?? 0}</b>
+                  </button>
+                ))}
+              </div>
+            ) : <span className="p2w-muted">Searching the whole month</span>}
+          </div>
+
+          {list.isLoading ? <p className="p2w-muted">Loading…</p> : null}
+          {list.data && dump && !list.data.items.length ? <p className="p2w-empty">No row here.</p> : null}
+          <ul className="dmsi-list">
+            {(list.data?.items ?? []).map((item) => {
+              const key = `${item.dumpId}:${item.rowNo}`;
+              const state = INTIMATION_STATE_LABELS[item.state];
+              return (
+                <li key={key} className={`dmsi-row dmsi-row--${item.state.toLowerCase()}`}>
+                  <div className="dmsi-row__main">
+                    <strong>{item.customerName ?? '—'}</strong>
+                    <span className="p2w-muted">{day(item.eventDate)} · {item.location ?? '—'}{item.mobile ? ` · ${item.mobile}` : ''}</span>
+                    <span className="dmsi-row__ids">
+                      {kind === 'BOOKING'
+                        ? <>{item.otf ?? item.bookingNumber ?? '—'}{item.otf && item.bookingNumber ? ` · ${item.bookingNumber}` : ''}</>
+                        : <>{item.chassis ?? '—'}{item.otf ? ` · ${item.otf}` : ''}</>}
+                      {item.model ? ` · ${item.model}${item.variant ? ` ${item.variant}` : ''}` : ''}
+                      {item.consultant ? ` · SC ${item.consultant}` : ''}
+                    </span>
+                  </div>
+                  <div className="dmsi-row__state">
+                    <span className={`p2du-tag p2du-tag--${state.tone}`}>{state.label}</span>
+                    {item.state === 'IN_VERIGENCE' && item.journeyId ? (
+                      <Link className="p2w-link" to={`/p2/journeys/${item.journeyId}/overview`}>{item.journeyReference}</Link>
+                    ) : null}
+                    {item.bookingOnFile ? <small className="p2w-muted">Booking on file, delivery not uploaded</small> : null}
+                    {item.mark ? <small className="p2w-muted">{item.mark.mine ? 'By you' : `By ${item.mark.byName}`}</small> : null}
+                    {canMark && item.state === 'OPEN' ? (
+                      <button type="button" className="p2w-button p2w-button--primary" disabled={busyRow === key}
+                        onClick={() => void act(item, true)}>
+                        {busyRow === key ? 'Saving…' : 'Intimated to me'}
+                      </button>
+                    ) : null}
+                    {canMark && item.state === 'INTIMATED' && item.mark?.mine ? (
+                      <button type="button" className="p2w-link" disabled={busyRow === key} onClick={() => void act(item, false)}>Withdraw</button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {list.data?.truncated ? <p className="p2w-muted">The first 500 rows are shown; search to narrow.</p> : null}
+        </SectionCard>
+      ) : null}
+    </div>
+  );
+}

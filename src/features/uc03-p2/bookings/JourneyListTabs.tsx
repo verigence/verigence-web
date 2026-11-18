@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import '../../../styles/uc03-p2-severity.css';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
@@ -101,6 +102,10 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
   const [kind, setKind] = useState<P2JourneyKind | ''>('');
+  const [severity, setSeverity] = useState<NonNullable<P2JourneyFilters['severity']>>(() => {
+    const asked = (params.get('severity') ?? '').toUpperCase();
+    return asked === 'HIGH' || asked === 'MEDIUM' || asked === 'LOW' || asked === 'NONE' ? asked : '';
+  });
   const currentMonth = useMemo(() => istMonth(), []);
   const [month, setMonth] = useState(() => {
     const asked = params.get('month');
@@ -132,6 +137,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
     outletId,
     pcActorId,
     kind,
+    severity,
     ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
     ...(dates ? { dateFrom: dates.from, dateTo: dates.to } : {}),
   };
@@ -177,7 +183,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const hasNext = list.data?.nextOffset != null;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
-  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dates || dealerId || outletId || pcActorId || kind);
+  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dates || dealerId || outletId || pcActorId || kind || severity);
   // The Dealership filter and panel only when the Project has more than one Dealership.
   const dealers = overview.data?.byDealer ?? [];
   const manyDealers = supervisor && dealers.length > 1;
@@ -197,7 +203,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
 
   const clear = () => {
     setSearch(''); setDraft(''); setMonth(calendarMonth ? currentMonth : ''); setDates(null); setDealerId(''); setOutletId('');
-    setPcActorId(''); setKind('');
+    setPcActorId(''); setKind(''); setSeverity('');
   };
   const chooseDealer = (key: string) => {
     setDealerId(key);
@@ -317,7 +323,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
             placeholder={SEARCH_PLACEHOLDER}
             scopeNote={[
               filters.month && calendarMonth ? `in ${monthLabel(filters.month)}` : '',
-              dealerId || outletId || pcActorId || kind ? 'with these filters' : '',
+              dealerId || outletId || pcActorId || kind || severity ? 'with these filters' : '',
             ].filter(Boolean).join(' ') || undefined}
           />
         ) : (
@@ -386,6 +392,17 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
             </label>
           </>
         ) : null}
+        {/* Observation severity (product owner 2026-11-18: "add filter in search"). */}
+        <label className="p2w-jtabs__select">
+          <span>Observation</span>
+          <select value={severity} onChange={(event) => setSeverity(event.target.value as NonNullable<P2JourneyFilters['severity']>)}>
+            <option value="">All</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+            <option value="NONE">None</option>
+          </select>
+        </label>
         {supervisor ? (
           <label className="p2w-jtabs__select">
             <span>Sort</span>
@@ -415,7 +432,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
 
       {items.length ? (
         <table className="p2w-jtable">
-          <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit record</th><th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th className="col-customer">Customer</th><th className="col-severity">Observation</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit record</th><th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             {items.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
           </tbody>

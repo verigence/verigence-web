@@ -8,6 +8,7 @@ import '../styles/uc03-p2-gate-pass.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import DutiesSection from '../features/duties/DutiesSection';
 import DailyWorkReport from '../features/uc03-p2/daily/DailyWorkReport';
 import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
 import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
@@ -59,6 +60,7 @@ function DailyWorkTab({ tenantId, accessToken, today, timezone }: {
  *   and duplicates, tasks and duties, over a date range;
  * - Work done and files closed: the "Work done on tasks" and "Delivery files closed" of a day;
  * - Gate Register: outlet-wise daily status or the calendar, and the tasks raised from it (2026-11-14).
+ * - Daily duties: the PCs' duties day by day, with the duty list and its switch (2026-11-18).
  * Dropped as repeats of Performance: the tracker's figures (gate pass, files, Drive, reviews, failed
  * uploads, tasks, recurring tasks), the Daily processing task status and uploads by PC, and the
  * all-outlets gate pass table. The tab is in the address; old addresses (?tab=daily-processing&day=,
@@ -125,6 +127,7 @@ export default function P2ProjectTrackerPage() {
           {tab === 'daily-processing'
             ? <DailyWorkTab tenantId={tenantId} accessToken={accessToken} today={today} timezone={project?.timezoneName} /> : null}
           {tab === 'gate-pass' ? <SupervisorGatePass tenantId={tenantId} accessToken={accessToken} /> : null}
+          {tab === 'duties' ? <DutiesSection mode="project" tenantId={tenantId} accessToken={accessToken} /> : null}
         </div>
       )}
     </div>

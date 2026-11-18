@@ -102,8 +102,9 @@ describe('Project Tracker tabs', () => {
   it('keeps Performance and the two pieces the product owner keeps, with Journeys and the DMS dumps (2026-11-13)', () => {
     // Journeys: the Dealership / Outlet / PC-wise panels moved off the TL landing page; DMS dumps:
     // the daily dumps like the gate register, the Team Lead's only.
+    // Daily duties: the PCs' duties day by day and the duty list (2026-11-18).
     expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Journeys', 'Work done and files closed',
-      'Gate Register', 'DMS dumps']);
+      'Gate Register', 'Daily duties', 'DMS dumps']);
     expect(trackerTabsFor('TL').map((t) => t.key)).toContain('dms-dumps');
     expect(trackerTabsFor('PM').map((t) => t.key)).not.toContain('dms-dumps');
     expect(trackerTabsFor('EXECUTIVE').map((t) => t.key)).not.toContain('dms-dumps');

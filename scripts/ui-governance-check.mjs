@@ -259,6 +259,11 @@ const projectNameViews = new Set([
   // Choose Dealership (product owner 2026-11-07): a person holding several Team Lead / PM /
   // Executive assignments could not tell them apart, so each card names its Project and the role.
   'src/components/ProjectContextGate.tsx',
+  // Daily duties on the Attendance screen (product owner 2026-11-18: "they should be able to see the
+  // list project wise"): a PC who works in several Projects sees their own duties under each one's
+  // name, in the list after check-in and in the reasons asked at check-out.
+  'src/features/duties/MyDutiesCard.tsx',
+  'src/features/duties/CheckoutDutiesDialog.tsx',
 ]);
 const operationalTsx = filesUnder('src', (relativePath) => {
   if (!relativePath.endsWith('.tsx')) return false;

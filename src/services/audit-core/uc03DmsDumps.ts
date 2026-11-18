@@ -87,6 +87,7 @@ export const DMS_MATCH_BASIS: Record<string, string> = {
   BOOKING_NUMBER: 'Booking no. / OTF',
   CHASSIS: 'Chassis',
   MOBILE: 'Mobile',
+  NAME_DATE: 'Name + booking date',
   NAME_MODEL: 'Name + model',
 };
 

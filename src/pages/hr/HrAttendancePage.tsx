@@ -12,6 +12,10 @@ import { useProjectContextStore } from '../../store/projectContextStore';
 import { getCheckoutCheck, type CheckoutCheck } from '../../services/audit-core/uc03MyWork';
 import CheckoutGateRegisterWarning from '../../features/uc03-p2/gatepass/CheckoutGateRegisterWarning';
 import { useMyFeatures } from '../../features/rollout/featureFlags';
+import CheckoutDutiesDialog, { closeDays } from '../../features/duties/CheckoutDutiesDialog';
+import MyDutiesCard from '../../features/duties/MyDutiesCard';
+import { activeDays, coversGateRegister, reasonsNeeded, type DutyProjectDay } from '../../features/duties/dutiesFormat';
+import { useMyDuties } from '../../features/duties/useMyDuties';
 import CaptureDialog from '../../features/hr/attendance/CaptureDialog';
 import CalendarSection from '../../features/hr/attendance/CalendarSection';
 import CorrectionDialog from '../../features/hr/attendance/CorrectionDialog';
@@ -46,9 +50,17 @@ export default function HrAttendancePage() {
   const [checkoutWarning, setCheckoutWarning] = useState<CheckoutCheck | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
 
-  async function start(event: AttendanceEvent) {
-    if (event !== 'CHECK_OUT' || project?.operatingRole !== 'PC' || !project.tenantId || !accessToken) {
-      setCapturing(event);
+  // Daily duties (product owner 2026-11-18): the day's list shows after check-in, Project by Project,
+  // and check-out asks for a reason for every mandatory duty not done -- that is the day close. A
+  // Project with duties off has no list, and a list that cannot be read never holds attendance up.
+  const duties = useMyDuties(accessToken);
+  const [dutyClose, setDutyClose] = useState<DutyProjectDay[] | null>(null);
+
+  /** The older warning about yesterday's gate register, unless the duty list already covers it. */
+  async function gateRegisterStep(days: DutyProjectDay[]) {
+    if (project?.operatingRole !== 'PC' || !project.tenantId || !accessToken
+        || coversGateRegister(days, project.tenantId)) {
+      setCapturing('CHECK_OUT');
       return;
     }
     setCheckingOut(true);
@@ -62,6 +74,29 @@ export default function HrAttendancePage() {
     }
     if (check && check.pending.length > 0) setCheckoutWarning(check);
     else setCapturing('CHECK_OUT');
+  }
+
+  async function start(event: AttendanceEvent) {
+    if (event !== 'CHECK_OUT' || !accessToken) {
+      setCapturing(event);
+      return;
+    }
+    setCheckingOut(true);
+    let days: DutyProjectDay[] = [];
+    try {
+      days = await duties.refetch();
+      if (reasonsNeeded(days) === 0) {
+        // Nothing needs a reason: the day closes by itself.
+        const refused = await closeDays(activeDays(days).map((d) => ({ tenantId: d.tenantId, reasons: [] })), accessToken);
+        if (refused) days = await duties.refetch();
+      }
+    } catch {
+      days = [];
+    } finally {
+      setCheckingOut(false);
+    }
+    if (reasonsNeeded(days) > 0) setDutyClose(days);
+    else await gateRegisterStep(days);
   }
 
   const today = useQuery({
@@ -164,6 +199,11 @@ export default function HrAttendancePage() {
         {data && <TrackingPanel today={data} />}
       </SectionCard>
 
+      {data && (
+        <MyDutiesCard days={duties.days} accessToken={accessToken} checkedIn={Boolean(data.day?.checkIn)}
+          checkedOut={Boolean(data.day?.checkOut)} />
+      )}
+
       {notice && (
         <div className="uc01-admin-message uc01-admin-message--success" role="status">
           <span>{notice}</span>{' '}
@@ -193,6 +233,15 @@ export default function HrAttendancePage() {
       >
         <MonthPanel month={month} query={history} viewer="self" />
       </SectionCard>
+
+      {dutyClose && (
+        <CheckoutDutiesDialog
+          days={dutyClose}
+          accessToken={accessToken}
+          onClose={() => setDutyClose(null)}
+          onDone={() => { const days = dutyClose; setDutyClose(null); void gateRegisterStep(days); }}
+        />
+      )}
 
       {checkoutWarning && (
         <CheckoutGateRegisterWarning

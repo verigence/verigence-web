@@ -6,6 +6,7 @@ import '../styles/uc03-p2-daily-report.css';
 import '../styles/task-manager.css';
 
 import PageHeader from '../components/PageHeader';
+import DutiesSection from '../features/duties/DutiesSection';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import TaskStatusSections from '../features/task-manager/TaskStatusSections';
 import { istToday } from '../features/task-manager/tmFormat';
@@ -13,7 +14,7 @@ import { getTmTaskStatus } from '../services/audit-core/taskManager';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import { useSessionStore } from '../store/sessionStore';
 
-type Section = 'tasks' | 'status';
+type Section = 'tasks' | 'status' | 'duties';
 
 function DailyStatus({ tenantId, accessToken }: { tenantId: string; accessToken?: string }) {
   const [day, setDay] = useState(istToday());
@@ -54,7 +55,7 @@ export default function AdminTaskManagerPage() {
       <PageHeader
         eyebrow="Administration · Task Manager"
         title="Task Manager"
-        description="Assign and follow tasks, set up recurring tasks, and see the daily status of one Project at a time. Employee engagement is under Reports."
+        description="Assign and follow tasks, set up recurring tasks, see the daily status, and keep the PCs' daily duties of one Project at a time. Employee engagement is under Reports."
       />
       <div className="tm-admin-picker">
         <label className="p2w-raise__field">
@@ -68,7 +69,7 @@ export default function AdminTaskManagerPage() {
         </label>
         {tenantId ? (
           <div className="p2w-segment" role="tablist" aria-label="Section">
-            {([['tasks', 'Tasks'], ['status', 'Daily status']] as const).map(([key, label]) => (
+            {([['tasks', 'Tasks'], ['status', 'Daily status'], ['duties', 'Daily duties']] as const).map(([key, label]) => (
               <button key={key} type="button" role="tab" aria-selected={section === key} className={section === key ? 'is-active' : ''}
                 onClick={() => setSection(key)}>{label}</button>
             ))}
@@ -78,6 +79,7 @@ export default function AdminTaskManagerPage() {
       {projects.isError ? <div className="p2w-alert p2w-alert--error" role="alert">Projects could not be loaded.</div> : null}
       {tenantId && section === 'tasks' ? <TaskManagerPanel key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
       {tenantId && section === 'status' ? <DailyStatus key={tenantId} tenantId={tenantId} accessToken={accessToken} /> : null}
+      {tenantId && section === 'duties' ? <DutiesSection key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
     </div>
   );
 }

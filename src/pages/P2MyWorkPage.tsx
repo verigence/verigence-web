@@ -6,6 +6,7 @@ import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-my-work.css';
 
 import PageHeader from '../components/PageHeader';
+import DutiesHomeNote from '../features/duties/DutiesHomeNote';
 import SectionCard from '../components/SectionCard';
 import { GateRegisterTable, PERIODS, PcTracker, Segment, Tile } from '../features/uc03-p2/my-work/MyWorkParts';
 import { P2_HOME_PATH } from '../features/uc03-p2/newBookingPath';
@@ -119,6 +120,7 @@ export default function P2MyWorkPage() {
         <span className="p2w-muted">{range.from === range.to ? range.from : `${range.from} to ${range.to}`}</span>
         <Link className="p2w-link" to="/p2/tracker">My Tracker</Link>
       </div>
+      {tenantId && role === 'PC' ? <DutiesHomeNote tenantId={tenantId} accessToken={accessToken ?? undefined} /> : null}
 
       {role !== 'PC' ? <SectionCard><p className="p2w-muted">PC Home is for a PC.</p></SectionCard> : null}
       {query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}

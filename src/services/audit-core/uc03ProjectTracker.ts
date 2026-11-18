@@ -229,13 +229,15 @@ export function monthLabel(month: string): string {
  *  tracker figures and the rest of the Daily processing tab repeated Performance. The keys stay, so old addresses still open their tab.
  *  Journeys: the Dealership-wise / Outlet-wise / PC-wise panels moved off the TL's landing page; DMS
  *  dumps: the dealers' daily dumps like the gate register, the Team Lead's only (both 2026-11-13). */
-export type TrackerTab = 'performance' | 'journeys' | 'daily-processing' | 'gate-pass' | 'dms-dumps';
+export type TrackerTab = 'performance' | 'journeys' | 'daily-processing' | 'gate-pass' | 'duties' | 'dms-dumps';
 export const TRACKER_TABS: Array<{ key: TrackerTab; label: string; roles?: string[] }> = [
   // How the team and each person is doing against their usual and their peers (2026-11-13).
   { key: 'performance', label: 'Performance' },
   { key: 'journeys', label: 'Journeys' },
   { key: 'daily-processing', label: 'Work done and files closed' },
   { key: 'gate-pass', label: 'Gate Register' },
+  // The PCs' daily duties, day by day, and the duty list with its switch (product owner 2026-11-18).
+  { key: 'duties', label: 'Daily duties' },
   { key: 'dms-dumps', label: 'DMS dumps', roles: ['TL'] },
 ];
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { badgeLabel, itemLink, sourceLabel, timeAgo } from '../../../services/audit-core/notifications';
+import { badgeLabel, itemLink, messageLinks, sourceLabel, timeAgo } from '../../../services/audit-core/notifications';
 
 describe('the notification bell', () => {
   it('shows no number under one and 99+ past 99', () => {
@@ -17,6 +17,23 @@ describe('the notification bell', () => {
     expect(itemLink({ ...base, source: 'BULK' })).toBe('/p2/bulk-upload');
     expect(itemLink({ ...base, source: 'DRIVE' })).toBe('/p2/drive-uploads');
     expect(sourceLabel('DRIVE')).toBe('Google Drive');
+  });
+
+  it('opens the booking a message is about: its document tasks, or Journey 360', () => {
+    // Product owner 18 Nov: the message did not say which booking, and could not be clicked.
+    // UTK-SA-261111-001 (Mithuna Behera): one page failed.
+    expect(messageLinks({ kind: 'MY_DOCUMENTS_ATTENTION', journeyId: 'j1' })).toEqual({
+      primary: '/p2/journeys/j1/tasks?tab=DOCUMENTS',
+      actions: [
+        { label: 'Open tasks', to: '/p2/journeys/j1/tasks?tab=DOCUMENTS' },
+        { label: 'Journey 360', to: '/p2/journeys/j1/overview' },
+      ],
+    });
+    expect(messageLinks({ kind: 'SAME_FILE_UPLOADED', journeyId: 'j2' })).toEqual({
+      primary: '/p2/journeys/j2/overview',
+      actions: [{ label: 'Journey 360', to: '/p2/journeys/j2/overview' }],
+    });
+    expect(messageLinks({ kind: 'MY_DOCUMENTS_ATTENTION', journeyId: null })).toBeNull();
   });
 
   it('says how long ago a message came', () => {

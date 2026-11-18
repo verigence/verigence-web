@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   alertMessage,
   dismissedStorageKey,
+  documentsAttentionBookings,
   readDismissed,
   unseenAlerts,
   writeDismissed,
@@ -88,3 +89,25 @@ describe('alertMessage', () => {
     expect(alertMessage(alert('a', { outcome: 'KEPT_NOT_INDIVIDUAL' }))).toContain('was kept for review.');
   });
 });
+
+describe('documentsAttentionBookings', () => {
+  it('names each booking of a "documents need attention" alert by its customer', () => {
+    // Product owner 18 Nov: the alert did not say which customer or booking it was about.
+    const mine = alert('m', {
+      kind: 'MY_DOCUMENTS_ATTENTION',
+      payload: {
+        journeys: [
+          { journeyId: 'j1', reference: 'UTK-SA-261111-001', customerName: 'MITHUNA BEHERA', failed: 1, stuck: 0 },
+          { journeyId: 'j2', reference: 'ADI-RD-261118-009', customerName: null, failed: 1, stuck: 0 },
+          { reference: 'no booking id' },
+        ],
+      },
+    });
+    expect(documentsAttentionBookings(mine)).toEqual([
+      { journeyId: 'j1', label: 'MITHUNA BEHERA · UTK-SA-261111-001' },
+      { journeyId: 'j2', label: 'ADI-RD-261118-009' },
+    ]);
+    expect(documentsAttentionBookings(alert('a'))).toEqual([]);
+  });
+});
+

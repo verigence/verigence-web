@@ -46,6 +46,15 @@ export type SameFileMatchedField = {
   exact?: boolean;
 };
 
+/** A booking of the "Your documents need attention" alert, named by its customer (2026-11-18). */
+export type DocumentsAttentionBooking = {
+  journeyId?: string | null;
+  reference?: string | null;
+  customerName?: string | null;
+  stuck?: number;
+  failed?: number;
+};
+
 export type TenantAlert = {
   alertId: string;
   kind: TenantAlertKind | string;
@@ -66,6 +75,8 @@ export type TenantAlert = {
     severity?: 'CRITICAL' | string;
     /** Two outlets of one dealership: both PCs' uploads are paused (2026-11-04). */
     uploadsBlocked?: boolean;
+    /** MY_DOCUMENTS_ATTENTION: the person's bookings with stuck or failed pages (2026-11-18). */
+    journeys?: DocumentsAttentionBooking[];
   };
   publishedAtUtc: string;
   expiresAtUtc: string;
@@ -157,4 +168,21 @@ export function isFlashingAlert(alert: TenantAlert): boolean {
 /** Critical alerts first, then newest first (the order Audit Core returns). */
 export function orderAlerts(alerts: readonly TenantAlert[]): TenantAlert[] {
   return [...alerts].sort((a, b) => Number(isCriticalAlert(b)) - Number(isCriticalAlert(a)));
+}
+
+const BOOKINGS_SHOWN = 8;
+
+/**
+ * The bookings a "Your documents need attention" alert is about, each to open (product owner
+ * 2026-11-18: the alert did not say which customer it was about, and could not be clicked).
+ */
+export function documentsAttentionBookings(alert: TenantAlert): { journeyId: string; label: string }[] {
+  if (alert.kind !== 'MY_DOCUMENTS_ATTENTION') return [];
+  return (alert.payload?.journeys ?? [])
+    .filter((j): j is DocumentsAttentionBooking & { journeyId: string } => Boolean(j?.journeyId))
+    .slice(0, BOOKINGS_SHOWN)
+    .map((j) => ({
+      journeyId: j.journeyId,
+      label: [j.customerName, j.reference].filter(Boolean).join(' · ') || 'Open booking',
+    }));
 }

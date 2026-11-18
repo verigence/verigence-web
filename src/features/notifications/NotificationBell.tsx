@@ -7,6 +7,7 @@ import {
   getNotifications,
   itemLink,
   markNotificationsSeen,
+  messageLinks,
   sourceLabel,
   timeAgo,
 } from '../../services/audit-core/notifications';
@@ -23,6 +24,11 @@ const POLL_MS = 60_000;
  * or set aside (failed pages and the rest raise tasks, so they are not here) -- in one panel (the
  * Carbon header notification panel pattern). The number is unread messages plus those uploads. Opening the panel
  * marks the messages read on the server; the ones that were new stay marked while it is open.
+ *
+ * Product owner 2026-11-18: "it doesnt tell which customer/journey is the reported issue.. can you
+ * provide it clickable so that it can directly open up that task or journey 360" -- a message about
+ * one's pages comes per booking, named by its customer; clicking it opens the booking's document
+ * tasks, and "Open tasks" / "Journey 360" are under it.
  */
 export default function NotificationBell() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -133,11 +139,20 @@ export default function NotificationBell() {
                         <small>{timeAgo(message.publishedAtUtc)}{message.journeyReference ? ` · ${message.journeyReference}` : ''}</small>
                       </>
                     );
+                    // Each message names its booking and opens it (product owner 2026-11-18).
+                    const links = messageLinks(message);
                     return (
                       <li key={message.alertId} className={fresh ? 'is-new' : ''}>
-                        {message.journeyId
-                          ? <Link to={`/p2/journeys/${message.journeyId}/overview`} onClick={() => setOpen(false)}>{body}</Link>
+                        {links
+                          ? <Link to={links.primary} onClick={() => setOpen(false)}>{body}</Link>
                           : <div>{body}</div>}
+                        {links ? (
+                          <p className="vg-notify__actions">
+                            {links.actions.map((action) => (
+                              <Link key={action.label} to={action.to} onClick={() => setOpen(false)}>{action.label}</Link>
+                            ))}
+                          </p>
+                        ) : null}
                       </li>
                     );
                   })}

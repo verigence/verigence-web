@@ -11,6 +11,8 @@ export const screens = [
   { name: 'pc-tasks', route: '/p2/tasks', role: 'PC' },
   { name: 'pc-journey-tasks', route: `/p2/journeys/${J}/tasks`, role: 'PC' },
   { name: 'pc-gate-pass', route: '/p2/gate-pass', role: 'PC' },
+  { name: 'pc-booking-intimation', route: '/p2/dms-intimations?kind=BOOKING', role: 'PC' },
+  { name: 'pc-delivery-intimation', route: '/p2/dms-intimations?kind=DELIVERY', role: 'PC' },
   { name: 'pc-missing-documents', route: '/p2/missing-documents', role: 'PC' },
   { name: 'pc-search', route: '/search', role: 'PC' },
   { name: 'pc-compliance-report', route: `/p2/journeys/${J}/compliance-report`, role: 'PC' },

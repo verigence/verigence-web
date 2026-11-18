@@ -52,6 +52,28 @@ const shell = [
     sessionId: '11111111-1111-4111-8111-111111111111', deviceId: '22222222-2222-4222-8222-222222222222',
     remembered: true, rememberToken: null, rememberExpiresAtUtc: '2099-01-01T00:00:00Z',
   })],
+  // Booking / Delivery Intimation (2026-11-18).
+  ['GET', /\/p2\/v1\/tenants\/[^/]+\/dms-intimations\/setup/, () => ({
+    canMark: true, canSeeCounter: false, today,
+    dealers: [{ dealerId: 'dealer-1', dealerName: 'Aditya Motors', groups: ['CUTTACK'],
+      groupOutlets: ['Bhubaneswar_Cube', 'Cuttack', 'Khordha'],
+      booking: { dumpDate: today, previousDumpDate: yesterday }, delivery: { dumpDate: today, previousDumpDate: yesterday } }],
+  })],
+  ['GET', /\/p2\/v1\/tenants\/[^/]+\/dms-intimations\?/, (_m, url) => {
+    const kind = url.searchParams.get('kind') || 'BOOKING';
+    const row = (n, state, mark) => ({
+      dumpId: 'dump-1', rowNo: n, kind, eventDate: today, customerName: `Customer With A Long Name ${n}`,
+      mobile: `90000000${10 + n}`, otf: `OTF27A0909${50 + n}`, bookingNumber: `B-134553${80 + n}`, chassis: `MA1NS2NP1T2K6123${n}`,
+      invoiceNumber: null, registrationNumber: null, model: 'XUV 3XO', variant: 'AX5 L', stage: 'Booked', consultant: 'Sales Consultant',
+      location: 'CUTTACK', outcome: state === 'IN_VERIGENCE' ? 'MATCHED' : 'MISSING', state, bookingOnFile: false,
+      journeyId: state === 'IN_VERIGENCE' ? 'journey-mobile-1' : null, journeyReference: state === 'IN_VERIGENCE' ? 'ADI-BO-261118-001' : null,
+      mark: mark ? { byName: 'Pc One', atUtc: `${today}T06:00:00Z`, mine: true } : null,
+    });
+    return { kind, dealerId: 'dealer-1', dealerName: 'Aditya Motors', view: 'new',
+      dump: { dumpId: 'dump-1', dumpDate: today, previousDumpDate: yesterday },
+      counts: { new: 3, open: 2, month: 40 }, newStates: { IN_VERIGENCE: 1, INTIMATED: 1, OPEN: 1 },
+      items: [row(1, 'OPEN'), row(2, 'INTIMATED', true), row(3, 'IN_VERIGENCE')], truncated: false };
+  }],
   ['GET', /\/security\/v1\/status\/maintenance/, () => ({ maintenance: null })],
   ['GET', /\/security\/v1\/status\/app-version/, () => ({})],
   ['GET', /\/security\/v1\/me\/features/, () => ({ features: { AUDIT: true, ANALYTICS: true, CHECKOUT_GATE_REGISTER: false } })],

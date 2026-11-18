@@ -97,6 +97,13 @@ export default function TenantAlertBanner() {
             <div className="tenant-alert__copy">
               <strong className="tenant-alert__title">{alert.title || 'Same file being uploaded'}</strong>
               <p className="tenant-alert__body">{alertMessage(alert)}</p>
+              {alert.kind === 'DMS_DUMP_UPLOADED' && alert.payload?.link ? (
+                <p className="tenant-alert__links">
+                  <Link to={alert.payload.link} onClick={() => dismiss([alert.alertId])}>
+                    Open {alert.payload.dumpKind === 'DELIVERY' ? 'Delivery' : 'Booking'} Intimation
+                  </Link>
+                </p>
+              ) : null}
               {journeys.length ? (
                 <p className="tenant-alert__links">
                   {journeys.map((j) => (

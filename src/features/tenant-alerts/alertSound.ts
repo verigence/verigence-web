@@ -20,7 +20,9 @@ export function alertsToBeep(
     // A duplicate booking across outlets beeps for the PC of either booking (2026-11-03);
     // so does one at two outlets of the same dealership (2026-11-04).
     || ((a.kind === 'DUPLICATE_ACROSS_OUTLETS' || a.kind === 'DUPLICATE_SAME_DEALERSHIP')
-      && (a.payload?.newJourney?.pcActorId === subject || a.payload?.existingJourney?.pcActorId === subject))));
+      && (a.payload?.newJourney?.pcActorId === subject || a.payload?.existingJourney?.pcActorId === subject))
+    // A DMS dump upload is sent to the dealership's PCs only: each of them hears it (2026-11-18).
+    || a.kind === 'DMS_DUMP_UPLOADED'));
 }
 
 export function beepedStorageKey(tenantId: string, subject: string): string {

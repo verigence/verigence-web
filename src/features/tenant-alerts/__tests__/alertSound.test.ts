@@ -61,3 +61,14 @@ describe('duplicate bookings, product owner 2026-11-04', () => {
     expect(isCriticalAlert(alert('s', 'DUPLICATE_SAME_DEALERSHIP'))).toBe(true);
   });
 });
+
+describe('a DMS dump upload (2026-11-18)', () => {
+  it('beeps once for each PC it is sent to', () => {
+    const dump: TenantAlert = {
+      alertId: 'dms-1', kind: 'DMS_DUMP_UPLOADED', title: 'Booking dump has been uploaded', body: '',
+      publishedAtUtc: '', expiresAtUtc: '', payload: { dumpKind: 'BOOKING', link: '/p2/dms-intimations?kind=BOOKING' },
+    };
+    expect(alertsToBeep([dump], 'pc-1', new Set()).map((a) => a.alertId)).toEqual(['dms-1']);
+    expect(alertsToBeep([dump], 'pc-1', new Set(['dms-1']))).toEqual([]);
+  });
+});

@@ -78,6 +78,9 @@ export type P2JourneyListItem = {
   /** DEALERSHIP / SELF, and who decided it (PC, DOCUMENT, UNCONFIRMED, DEFAULT). */
   insurance_type?: string | null;
   insurance_decided_by?: string | null;
+  /** Observation severity (2026-11-18): a person's over the system's; null for none. */
+  observation_severity?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+  observation_severity_set_by_person?: boolean;
   /** The PC who started the journey, as their app named them. */
   pc_name?: string | null;
   /** The outlet's own id (code), for the TL's columns. */
@@ -110,6 +113,8 @@ export type P2JourneyFilters = {
   /** Bookings only / Deliveries only (2026-11-09): a booking by its booking date, a delivery by its
    *  delivery date (started or delivered) -- the month figures' own; empty for both. */
   kind?: P2JourneyKind | '';
+  /** Observation severity (2026-11-18): HIGH / MEDIUM / LOW, or NONE (no severity); empty for all. */
+  severity?: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' | '';
   outletId?: string;
   pcActorId?: string;
   /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
@@ -706,6 +711,7 @@ export function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams 
   if (filters.month && filters.monthBasis) params.set('month_basis', filters.monthBasis);
   if (filters.dealerId) params.set('dealer_id', filters.dealerId);
   if (filters.kind) params.set('kind', filters.kind);
+  if (filters.severity) params.set('severity', filters.severity);
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
   if (filters.dateFrom && filters.dateTo) { params.set('from', filters.dateFrom); params.set('to', filters.dateTo); }
@@ -1275,6 +1281,8 @@ export type P2Deal = {
   insurance?: P2DealInsurance;
   /** Scrappage on the deal (2026-11-17); null with no scrappage. */
   scrappage?: P2DealScrappage | null;
+  /** FASTag an invoice charges and the NDC does not (2026-11-18): taken into the Deal from it. */
+  fastagNotOnNdc?: { amount: string; source: string } | null;
   /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
   invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money;
     counted?: boolean; sameInvoiceAs?: string[] }>;

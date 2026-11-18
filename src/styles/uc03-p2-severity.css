@@ -1,0 +1,57 @@
+/* Observation severity (product owner 2026-11-18): the tag, and the whole journey
+   row tinted by it in the Booking & Delivery list. Colours follow the IBM Carbon
+   support palette (red 60 / orange 40 / yellow 30 on their 10 tints). */
+:root {
+  --obs-high: #da1e28;
+  --obs-high-soft: #fff1f1;
+  --obs-medium: #b84500;
+  --obs-medium-soft: #fff2e8;
+  --obs-low: #8e6a00;
+  --obs-low-soft: #fcf4d6;
+}
+
+.obs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: #fff;
+}
+button.obs-chip { cursor: pointer; }
+button.obs-chip:disabled { cursor: default; }
+.obs-chip--high { color: var(--obs-high); background: var(--obs-high-soft); }
+.obs-chip--medium { color: var(--obs-medium); background: var(--obs-medium-soft); }
+.obs-chip--low { color: var(--obs-low); background: var(--obs-low-soft); }
+.obs-chip--none { color: #525252; border-style: dashed; }
+
+/* The whole row, desktop and tablet. */
+.p2w .p2w-jrow.has-severity-high td { background: var(--obs-high-soft); }
+.p2w .p2w-jrow.has-severity-medium td { background: var(--obs-medium-soft); }
+.p2w .p2w-jrow.has-severity-low td { background: var(--obs-low-soft); }
+.p2w .p2w-jrow.has-severity-high td:first-child { border-left-color: var(--obs-high); }
+.p2w .p2w-jrow.has-severity-medium td:first-child { border-left-color: var(--obs-medium); }
+.p2w .p2w-jrow.has-severity-low td:first-child { border-left-color: var(--obs-low); }
+
+/* Phone: the row is a card; the card takes the tint (mobile only). */
+@media (max-width: 760px) {
+  .p2w .p2w-jrow.has-severity-high { background: var(--obs-high-soft); border-left-color: var(--obs-high); }
+  .p2w .p2w-jrow.has-severity-medium { background: var(--obs-medium-soft); border-left-color: var(--obs-medium); }
+  .p2w .p2w-jrow.has-severity-low { background: var(--obs-low-soft); border-left-color: var(--obs-low); }
+  .p2w .p2w-jrow.has-severity-high td, .p2w .p2w-jrow.has-severity-medium td,
+  .p2w .p2w-jrow.has-severity-low td { background: none; }
+}
+
+.obs-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; padding: 0; border: 0; }
+.obs-choice {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border: 1px solid #c6c6c6; border-radius: 4px; cursor: pointer;
+}
+.obs-choice--high { border-color: var(--obs-high); }
+.obs-choice--medium { border-color: var(--obs-medium); }
+.obs-choice--low { border-color: var(--obs-low); }

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
+import '../styles/uc03-p2-severity.css';
 
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
 import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';

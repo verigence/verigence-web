@@ -9,6 +9,7 @@ import { canDeleteJourney } from '../workspace/deleteJourney';
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { useSessionStore } from '../../../store/sessionStore';
 import JourneyClosedBadge from '../workspace/JourneyClosedBadge';
+import { SEVERITY_LABEL } from '../../../services/audit-core/uc03ObservationSeverity';
 
 /** The six steps of a Journey, Booking then Delivery. */
 const JOURNEY_STEPS = [
@@ -221,7 +222,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         : <span className="p2w-chip p2w-chip--progress">Booking</span>;
 
   return (
-    <tr className={`p2w-jrow is-${next.priority}`}>
+    <tr className={`p2w-jrow is-${next.priority}${item.observation_severity ? ` has-severity-${item.observation_severity.toLowerCase()}` : ''}`}>
       <td className="p2w-jrow__who" data-label="Customer">
         <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
@@ -233,6 +234,14 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
             ].filter(Boolean).join(' · ')}
           </span>
         ) : null}
+      </td>
+      <td className="p2w-jrow__severity" data-label="Observation">
+        {item.observation_severity ? (
+          <span className={`obs-chip obs-chip--${item.observation_severity.toLowerCase()}`}
+            title={item.observation_severity_set_by_person ? 'Set by a Reviewer / Team Lead / Project Manager' : 'Set by the system'}>
+            {SEVERITY_LABEL[item.observation_severity]}
+          </span>
+        ) : <span className="p2w-muted">—</span>}
       </td>
       <td className="p2w-jrow__price" data-label="Price variance">
         {item.delivery_started === false ? (

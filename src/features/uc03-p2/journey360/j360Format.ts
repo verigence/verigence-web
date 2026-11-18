@@ -44,6 +44,7 @@ export const FLAG_LABELS: Record<string, string> = {
   NOT_ON_STATEMENT: 'Not on the NDC',
   SCRAPPAGE_CONCESSION: 'Scrappage concession',
   SCRAPPAGE_COD_MISSING: 'Certificate of Deposit missing',
+  FASTAG_NOT_ON_NDC: 'Not on the NDC: from the invoice',
   INVOICES_DISAGREE: 'Documents disagree',
   AWAITING_DOCUMENT: 'Awaiting document',
   BENEFIT_NOT_NAMED: 'Benefit not named',

@@ -156,10 +156,16 @@ export default function P2DataUploadsPage() {
     setBusy(false);
     await queryClient.invalidateQueries({ queryKey: ['dms-dumps', tenantId] });
   };
+  // The download covers one day's uploads (product owner 2026-11-18: it reported every earlier
+  // run of the month): the latest day with a dump by default, any other day on request.
+  const dumpDays = [...new Set((dumps.data?.items ?? []).map((d) => d.businessDate))].sort().reverse();
+  const [reportDay, setReportDay] = useState('');
+  const exportDay = reportDay && dumpDays.includes(reportDay) ? reportDay : dumpDays[0] ?? '';
   const exportExcel = async (dumpId?: string) => {
     setError(null);
     try {
-      save(await downloadDmsReport(tenantId!, month, accessToken, dumpId), `DMS-Dump-Variance_${month}${dumpId ? '_upload' : ''}.xlsx`);
+      save(await downloadDmsReport(tenantId!, month, accessToken, dumpId, dumpId ? undefined : exportDay || undefined),
+        `DMS-Dump-Variance_${dumpId ? `${month}_upload` : exportDay || month}.xlsx`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The report could not be downloaded.');
     }
@@ -199,9 +205,19 @@ export default function P2DataUploadsPage() {
             ? "The DMS dumps outlet wise, as at a day: the DMS against Verigence and the PCs' gate register, with the DMS's own grouping of outlets."
             : "The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."}
         actions={section === 'dms' ? (
-          <button type="button" className="p2w-button p2w-button--secondary" disabled={!enabled} onClick={() => void exportExcel()}>
-            Export to Excel
-          </button>
+          <div className="p2du-export">
+            <label>
+              <span>Report of</span>
+              <select aria-label="Dump day to download" value={exportDay} disabled={!dumpDays.length}
+                onChange={(e) => setReportDay(e.target.value)}>
+                {dumpDays.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </label>
+            <button type="button" className="p2w-button p2w-button--secondary" disabled={!enabled || !exportDay}
+              onClick={() => void exportExcel()}>
+              Export to Excel
+            </button>
+          </div>
         ) : undefined}
       />
       <div className="p2du-switcher" role="tablist" aria-label="Upload type">

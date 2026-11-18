@@ -204,3 +204,9 @@
   .p2ins-file { grid-template-columns: 1fr 1fr; }
   .p2ins-grid input:not([type='number']) { min-width: 140px; }
 }
+
+/* DMS dumps: the day whose uploads the Excel reports (2026-11-18), beside its button. */
+.p2du-export { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.p2du-export label { display: grid; gap: 4px; font-size: .75rem; color: var(--cds-text-secondary, #525252); }
+.p2du-export select { min-height: 40px; padding: 0 12px; border: 0; border-bottom: 1px solid #8d8d8d;
+  background: var(--cds-field, #f4f4f4); font: inherit; font-size: .875rem; }

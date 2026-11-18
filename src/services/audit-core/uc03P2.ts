@@ -1165,6 +1165,31 @@ export type P2DealRow = {
   /** Accessories bought beyond the NDC / cost sheet (2026-11-12): what the customer ledger posts over
    * the NDC's charge. In the amount to be received, in no line, standard or variance of the deal. */
   addOn?: Money;
+  /** The RTO line on a scrappage deal (2026-11-17): the price master's figure before the
+   * scrappage concession, and the concession taken off it (``standard`` is after it). */
+  standardMaster?: Money;
+  standardBasis?: string | null;
+  scrappageConcession?: P2ScrappageConcession | null;
+};
+
+export type P2ScrappageConcession = {
+  key: string; label?: string | null; masterStandard: string; concession: string; standard: string;
+  source: string; codOnFile: boolean; evidence?: string | null; challanTax?: string | null;
+};
+
+/** Scrappage on the deal (2026-11-17): the Certificates of Deposit on file, the rebate the
+ * RTO challan prints, the concession taken off the RTO standard, the scrappage benefits given. */
+export type P2DealScrappage = {
+  certificates: Array<{
+    documentId: string; certificateNumber?: string | null; variant?: string | null; issuedOn?: string | null;
+    validUntil?: string | null; holder?: string | null; oldVehicleRegistration?: string | null;
+    oldVehicle?: string | null; oldVehicleType?: string | null;
+  }>;
+  challanRebate?: string | null;
+  challanTax?: string | null;
+  concession?: P2ScrappageConcession | null;
+  benefits: Array<{ key: string; label?: string | null; amount: Money }>;
+  codMissing: boolean;
 };
 
 export type P2DealCategory = {
@@ -1248,6 +1273,8 @@ export type P2Deal = {
   /** Inhouse (through the dealership, premium in the deal) or Self (the
    * customer arranged it, premium out). Inhouse until the PC says otherwise. */
   insurance?: P2DealInsurance;
+  /** Scrappage on the deal (2026-11-17); null with no scrappage. */
+  scrappage?: P2DealScrappage | null;
   /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
   invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money;
     counted?: boolean; sameInvoiceAs?: string[] }>;

@@ -42,6 +42,8 @@ export const FLAG_LABELS: Record<string, string> = {
   UNDER_ENTITLEMENT: 'Less than entitled',
   NOT_INVOICED: 'Not invoiced',
   NOT_ON_STATEMENT: 'Not on the NDC',
+  SCRAPPAGE_CONCESSION: 'Scrappage concession',
+  SCRAPPAGE_COD_MISSING: 'Certificate of Deposit missing',
   INVOICES_DISAGREE: 'Documents disagree',
   AWAITING_DOCUMENT: 'Awaiting document',
   BENEFIT_NOT_NAMED: 'Benefit not named',

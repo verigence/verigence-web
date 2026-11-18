@@ -148,11 +148,13 @@
 .xd .xd-kit { color: #8a3800; font-weight: 600; }
 .xd .xd-reason { color: var(--xd-text-2); max-width: 280px; }
 @media (max-width: 760px) { .xd .xd-tabs button { flex: 1 1 100%; min-width: 0; } }
-/* Phones (2026-11-07, Carbon small breakpoint): the three views sit in one row like a content
-   switcher, and the figures are two tiles per row instead of one per row. */
+/* Phones (2026-11-07, Carbon small breakpoint): the figures are two tiles per row instead of one
+   per row. The views (five since 2026-11-17: one row no longer fits a 360px phone) sit two per row,
+   the last one full width when they are odd, so every view stays in sight -- whatever their number. */
 @media (max-width: 671px) {
-  .xd .xd-tabs { flex-wrap: nowrap; }
-  .xd .xd-tabs button { flex: 1 1 0; padding: 10px 8px; font-size: .82rem; line-height: 1.25; }
+  .xd .xd-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .xd .xd-tabs button { min-width: 0; padding: 10px 8px; font-size: .82rem; line-height: 1.25; }
+  .xd .xd-tabs button:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .xd .xd-tabs small { font-size: .7rem; }
   .xd .xd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .xd .xd-tile { padding: 12px; }

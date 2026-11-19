@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- **Oldest app version allowed – for one Project** (SuperAdmin, Reports > App): besides the minimum for everyone, a minimum can be set for the people who work in one Project. Their Android app below it is refused at sign-in and when its session renews, and says where to download the latest. People of other Projects are not affected.
+
 ## [1.9.0] - 2026-11-19
 
 ### Added

@@ -14,6 +14,7 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Added
 - **My duties today** (PC, on Attendance): after you check in, Attendance shows your duties for the day, Project by Project and outlet by outlet. Tick each one as you finish it; some ask for a number (files received, cash ledger amount and transactions). Duties the system can read for itself (gate out register, uploads, vehicle photos of the day's deliveries, bank statement) tick themselves and show how far they are. For the cash ledger and bank statement you can say **Not received**; you are then asked whether you have informed the WhatsApp group, and it is asked again the next day. What is not done comes back on the next day's list for a few days. Shown only where the Project has daily duties switched on.
+- **My duties today – Work on open tasks** (PC): a new duty for working on the tasks raised on your outlet's files. Verigence reads it from the Tasks screen: it shows how many tasks you worked on and closed today and how many are still open, and counts the day once you have worked on at least one. **Open tasks** takes you there. The day's work on tasks is not carried to the next day.
 - **Reasons at check-out** (PC): when you check out with a mandatory duty not done, you are asked for a reason for each one before the check-out photo. If the list cannot be reached, check-out goes ahead as usual.
 - **Project Tracker – Daily duties** (Team Lead, PM, Executive): every outlet and PC day by day: what is done (who, when, the numbers), on track, pending, not received (and whether the WhatsApp group was informed), incomplete, the reasons given, and who closed their day. An Executive keeps the duty list there (add, change, make mandatory or optional, choose days and outlets) and switches daily duties on or off for the Project. SuperAdmin has the same under Administration, Task Manager.
 - **Excess discount**: a new list, **NDC reading in doubt**: a discount read from an NDC whose rows do not give its printed totals is shown there with why, and no longer counted as excess until the reading is corrected. Kit-given-as-cash rows now show the offer (for example the Scorpio Classic kit).
@@ -32,6 +33,7 @@ The app's build number is added by the release workflow and is not written here.
 - **A Team Lead's own attendance requests** (late, early, location, short day and corrections) go to the Project Manager or Executive, never to another Team Lead.
 
 ### Changed
+- **Daily Gate Pass task removed** (PC): the gate out register is now on **My duties today**, so the separate Daily Gate Pass task no longer appears in your tasks. The gate register itself and its screens are unchanged.
 - **Apply for leave**: paid leave and comp-off cannot be chosen when none is available; the form shows how many days are available.
 
 ## [1.8.0] - 2026-11-15

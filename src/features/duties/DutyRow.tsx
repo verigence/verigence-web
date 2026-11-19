@@ -14,6 +14,7 @@ const CHECKER_LINKS: Record<string, { to: string; label: string }> = {
   UPLOADS: { to: '/p2/bookings', label: 'Open Booking & Delivery' },
   VEHICLE_PHOTOS: { to: '/p2/bookings', label: 'Open Booking & Delivery' },
   BANK_STATEMENT: { to: '/p2/data-uploads?type=bank', label: 'Open bank statements' },
+  OPEN_TASKS: { to: '/p2/tasks', label: 'Open tasks' },
 };
 
 function errorText(cause: unknown): string {

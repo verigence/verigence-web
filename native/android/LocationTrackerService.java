@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * background or swiped away; it shows the notification Android requires. Every
  * clock hour is split into slots of ``intervalMinutes`` (20: at most 3 readings an
  * hour, the server's limit) and one reading is taken at a random moment in each
- * slot, only between 10:00 and 19:30 IST. Each reading is kept on the phone first
+ * slot, within the hours Audit Core gives at check-in (from 10:00 IST until check-out). Each reading is kept on the phone first
  * and sent when there is a network, with the moment it was read, so a phone with
  * no signal loses nothing. The service stops at the end of the day's tracking, at
  * check-out, or when the server says the key is no longer active.
@@ -386,7 +386,7 @@ public class LocationTrackerService extends Service {
 
     /**
      * Send every reading kept, oldest first, in batches. Returns true when the server
-     * says tracking is over (check-out, 19:30, or another phone took over).
+     * says tracking is over (check-out, the end of the day, or another phone took over).
      */
     static boolean sendAll(Context context, LocationTrackerStore store) {
         boolean over = false;

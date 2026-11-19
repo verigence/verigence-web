@@ -1,9 +1,6 @@
 import type { TrackerStatus } from '../../services/device/backgroundLocation';
 import type { BeginResult } from './attendanceTracking';
 
-const IST_OFFSET_MS = (5 * 60 + 30) * 60_000;
-const WINDOW_END_MINUTE = 19 * 60 + 30;
-
 /**
  * The one thing the location card on My attendance asks of the person, or null when there is
  * nothing to ask (product owner, 19 Nov 2026: "lets not put such strong wordings and time
@@ -17,7 +14,7 @@ export type TrackingAsk =
   | { kind: 'TURN_ON'; text: string }
   | { kind: 'PHONE_SETTINGS'; text: string };
 
-export function trackingAsk(status: TrackerStatus, problem: BeginResult | null, now: number): TrackingAsk | null {
+export function trackingAsk(status: TrackerStatus, problem: BeginResult | null): TrackingAsk | null {
   if (status.active) {
     if (status.backgroundPermission === false) {
       return { kind: 'ALLOW_ALWAYS', text: 'Please set location for Verigence to Allow all the time.' };
@@ -32,11 +29,10 @@ export function trackingAsk(status: TrackerStatus, problem: BeginResult | null, 
   if (problem && !problem.started) {
     if (problem.reason === 'NO_LOCATION_PERMISSION') return noPermission;
     if (problem.reason === 'FAILED') return { kind: 'TURN_ON', text: 'Location could not be turned on. Please check the network and try again.' };
-    // No Project, not the Android app, or past the day's hours: nothing the person can do.
+    // No Project, not the Android app, or the day is over: nothing the person can do.
     return null;
   }
   if (status.locationPermission === false) return noPermission;
-  const ist = new Date(now + IST_OFFSET_MS);
-  if (ist.getUTCHours() * 60 + ist.getUTCMinutes() >= WINDOW_END_MINUTE) return null;
+  // Recording runs until check-out, however late (product owner, 19 Nov 2026): no hour is checked here.
   return { kind: 'TURN_ON', text: 'Location is off on this phone.' };
 }

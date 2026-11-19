@@ -52,8 +52,10 @@ describe('the phone records the location from check-in to check-out', () => {
     expect(trackingDecision(day(true, false), running, NOW)).toBe('NONE');
     expect(trackingDecision(day(true, true), running, NOW)).toBe('STOP');
     expect(trackingDecision(day(false, false), idle, NOW)).toBe('NONE');
-    // After 19:30 IST, or yesterday's attendance: nothing starts.
-    expect(trackingDecision(day(true, false), idle, Date.parse('2026-11-16T14:05:00Z'))).toBe('NONE');
+    // A PC working late is still recorded (product owner, 19 Nov 2026): 19:35 and 22:00 start it too.
+    expect(trackingDecision(day(true, false), idle, Date.parse('2026-11-16T14:05:00Z'))).toBe('START');
+    expect(trackingDecision(day(true, false), idle, Date.parse('2026-11-16T16:30:00Z'))).toBe('START');
+    // Yesterday's attendance: nothing starts.
     expect(trackingDecision(day(true, false, '2026-11-15'), idle, NOW)).toBe('NONE');
     expect(trackingDecision(day(true, false), { available: false, active: false }, NOW)).toBe('NONE');
   });
@@ -100,35 +102,33 @@ describe('what the person and the report read', () => {
   it('asks for one phone setting at a time, in a line, and says nothing when there is nothing to ask', () => {
     const active = { available: true, active: true, pending: 2, lastReadingMs: Date.parse('2026-11-16T05:20:00Z') };
     // Product owner, 19 Nov 2026: "just ask them to allow all time".
-    expect(trackingAsk({ ...active, backgroundPermission: false, unrestrictedBattery: false }, null, NOW))
+    expect(trackingAsk({ ...active, backgroundPermission: false, unrestrictedBattery: false }, null))
       .toEqual({ kind: 'ALLOW_ALWAYS', text: 'Please set location for Verigence to Allow all the time.' });
-    expect(trackingAsk({ ...active, backgroundPermission: true, unrestrictedBattery: false }, null, NOW)?.kind).toBe('KEEP_RUNNING');
-    expect(trackingAsk({ ...active, backgroundPermission: true, unrestrictedBattery: true }, null, NOW)).toBeNull();
-    expect(trackingAsk(active, null, NOW)).toBeNull();
+    expect(trackingAsk({ ...active, backgroundPermission: true, unrestrictedBattery: false }, null)?.kind).toBe('KEEP_RUNNING');
+    expect(trackingAsk({ ...active, backgroundPermission: true, unrestrictedBattery: true }, null)).toBeNull();
+    expect(trackingAsk(active, null)).toBeNull();
   });
 
   it('never tells the person an hour, and is quiet about what they cannot change', () => {
     const off = { available: true, active: false };
-    const evening = Date.parse('2026-11-16T14:30:00Z'); // 20:00 IST
     const every = [
-      trackingAsk({ available: true, active: true, backgroundPermission: false }, null, NOW),
-      trackingAsk({ available: true, active: true, backgroundPermission: true, unrestrictedBattery: false }, null, NOW),
-      trackingAsk(off, null, NOW),
-      trackingAsk(off, { started: false, reason: 'FAILED' }, NOW),
-      trackingAsk(off, { started: false, reason: 'NO_LOCATION_PERMISSION' }, NOW),
-      trackingAsk({ ...off, locationPermission: false }, null, NOW),
+      trackingAsk({ available: true, active: true, backgroundPermission: false }, null),
+      trackingAsk({ available: true, active: true, backgroundPermission: true, unrestrictedBattery: false }, null),
+      trackingAsk(off, null),
+      trackingAsk(off, { started: false, reason: 'FAILED' }),
+      trackingAsk(off, { started: false, reason: 'NO_LOCATION_PERMISSION' }),
+      trackingAsk({ ...off, locationPermission: false }, null),
     ];
     for (const ask of every) {
       expect(ask).not.toBeNull();
       expect(ask!.text).not.toMatch(/\d/);
       expect(ask!.text).not.toMatch(/record|only|must|latest/i);
     }
-    expect(trackingAsk(off, null, NOW)?.kind).toBe('TURN_ON');
-    expect(trackingAsk({ ...off, locationPermission: false }, null, NOW)?.kind).toBe('PHONE_SETTINGS');
-    // A PC working late is told nothing about hours; nor is one with no Project.
-    expect(trackingAsk(off, null, evening)).toBeNull();
-    expect(trackingAsk(off, { started: false, reason: 'WINDOW_OVER' }, evening)).toBeNull();
-    expect(trackingAsk(off, { started: false, reason: 'NO_PROJECT' }, NOW)).toBeNull();
+    expect(trackingAsk(off, null)?.kind).toBe('TURN_ON');
+    expect(trackingAsk({ ...off, locationPermission: false }, null)?.kind).toBe('PHONE_SETTINGS');
+    // No hour is judged here: recording runs until check-out. Nothing for what the person cannot change.
+    expect(trackingAsk(off, { started: false, reason: 'WINDOW_OVER' })).toBeNull();
+    expect(trackingAsk(off, { started: false, reason: 'NO_PROJECT' })).toBeNull();
   });
 
   it('puts checked hours against hours on DealGuard', () => {

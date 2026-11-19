@@ -5,7 +5,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
  * 2026-11-16: "though app may be in background or may be killed.. some way to
  * collect the data"). Android only: a foreground service in the app
  * (native/android/LocationTrackerService.java) that reads the location every
- * 20 minutes between 10:00 and 19:30 IST, keeps each reading on the phone when
+ * 20 minutes from 10:00 IST until check-out (the hours come from Audit Core), keeps each reading on the phone when
  * there is no network and sends it later. Elsewhere every call is a no-op.
  */
 export type TrackerStatus = {

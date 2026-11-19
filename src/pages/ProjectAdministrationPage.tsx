@@ -16,6 +16,7 @@ import DutyListPanel from '../features/duties/DutyListPanel';
 import {
   PROJECT_ADMIN_SECTIONS, PROJECT_ONBOARDING_PATH, isProjectAdminSection, type ProjectAdminSection,
 } from '../features/project-admin/projectAdministrationPaths';
+import TaskSwitchesPanel from '../features/project-admin/TaskSwitchesPanel';
 import TmSchedules from '../features/task-manager/TmSchedules';
 import { getTmContext } from '../services/audit-core/taskManager';
 import { listProjects } from '../services/audit-core/uc02Admin';
@@ -92,7 +93,7 @@ export default function ProjectAdministrationPage() {
       <PageHeader
         eyebrow="Administration"
         title="Project Administration"
-        description="The running settings of one Project: the PCs' daily duties, its recurring tasks and the oldest app version its people may use. Setting a Project up is under Project Onboarding."
+        description="The running settings of one Project: the PCs' daily duties, its recurring tasks, the oldest app version its people may use and which kinds of task its checks raise. Setting a Project up is under Project Onboarding."
         actions={<Link to={PROJECT_ONBOARDING_PATH} className="uc01-admin-button">Project Onboarding</Link>}
       />
       <div className="tm-admin-picker">
@@ -126,6 +127,12 @@ export default function ProjectAdministrationPage() {
         <>
           <p className="p2w-muted">Tasks raised on a schedule for this Project. The tasks themselves are followed under <Link to="/admin/task-manager">Task Manager</Link>.</p>
           <RecurringTasks key={tenantId} tenantId={tenantId} accessToken={accessToken} />
+        </>
+      ) : null}
+      {tenantId && section === 'tasks' ? (
+        <>
+          <p className="p2w-muted">Every kind of task this Project's checks raise. Switch one off when it is not relevant for now; switch it on again at any time.</p>
+          <TaskSwitchesPanel key={tenantId} tenantId={tenantId} accessToken={accessToken ?? undefined} />
         </>
       ) : null}
       {tenantId && section === 'app' ? (

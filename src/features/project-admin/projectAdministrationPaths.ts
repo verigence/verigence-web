@@ -11,6 +11,8 @@ export const PROJECT_ADMIN_SECTIONS = [
   { key: 'duties', label: 'Daily duties' },
   { key: 'recurring', label: 'Recurring tasks' },
   { key: 'app', label: 'App version' },
+  // Switch kinds of task off / on for the Project (product owner 2026-11-19).
+  { key: 'tasks', label: 'Tasks raised' },
 ] as const;
 
 export type ProjectAdminSection = (typeof PROJECT_ADMIN_SECTIONS)[number]['key'];

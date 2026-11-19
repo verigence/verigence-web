@@ -16,13 +16,13 @@ const when = (iso: string | null) =>
 const MIN_REASON = 5;
 
 /**
- * Project Administration → Tasks (product owner 2026-11-19): every kind of task the
+ * Project Administration → Tasks raised (product owner 2026-11-19): every kind of task the
  * Project's checks raise, with how many are open, and a switch. Switched off, the check
  * stops for this Project and its open tasks and findings leave the existing journeys;
  * switched on again, every booking is checked again. Each change asks why and keeps who
- * and when. Tenant Admin and Super Admin only (the page is).
+ * and when. Super Admin only, as the page is.
  */
-export default function TaskSwitchesStep({ tenantId, accessToken }: { tenantId: string; accessToken?: string }) {
+export default function TaskSwitchesPanel({ tenantId, accessToken }: { tenantId: string; accessToken?: string }) {
   const [items, setItems] = useState<TaskSwitch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export default function TaskSwitchesStep({ tenantId, accessToken }: { tenantId: 
   }
 
   return (
-    <div className="uc02-step-body">
+    <div className="vg-taskswitch">
       <div className="uc02-card uc02-list-card">
         <div className="uc02-list-toolbar">
           <div className="uc02-card__title">

@@ -6,8 +6,7 @@ import StatusPill from '../components/StatusPill';
 import { sortByName } from '../utils/sortByName';
 import MahindraMasterUploads from '../features/project-admin/MahindraMasterUploads';
 import OtherProjectsNotice from '../features/project-admin/OtherProjectsNotice';
-import ProjectAdminStepper, { LAST_STEP, projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
-import TaskSwitchesStep from '../features/project-admin/TaskSwitchesStep';
+import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
 import ProjectReferenceFields from '../features/project-admin/ProjectReferenceFields';
 import ProjectSelector from '../features/project-admin/ProjectSelector';
 import SevaSutraInstanceCard from '../features/project-admin/SevaSutraInstanceCard';
@@ -200,7 +199,7 @@ export default function ProjectOnboardingPage() {
   const clearOperationalProject = useProjectContextStore((state) => state.clearSelection);
 
   const requestedStep = Number(searchParams.get('step') || '1');
-  const activeStep = Number.isInteger(requestedStep) && requestedStep >= 1 && requestedStep <= LAST_STEP ? requestedStep : 1;
+  const activeStep = Number.isInteger(requestedStep) && requestedStep >= 1 && requestedStep <= 8 ? requestedStep : 1;
   const currentStep = projectAdminSteps.find((item) => item.key === activeStep)!;
 
   const [project, setProject] = useState<Uc02Project | null>(null);
@@ -428,8 +427,8 @@ export default function ProjectOnboardingPage() {
         if (activeStep === 4) await ensureCandidates();
         if (activeStep === 5) await Promise.all([ensureDealers(), ensureCandidates(), ensureMappings()]);
         if (activeStep === 6) await ensureMasters();
-        if (activeStep === 8) setReadiness(await getProjectReadiness(tenantId, accessToken));
-        if (activeStep === 9) {
+        if (activeStep === 7) setReadiness(await getProjectReadiness(tenantId, accessToken));
+        if (activeStep === 8) {
           const [nextReadiness] = await Promise.all([
             getProjectReadiness(tenantId, accessToken),
             ensureDealers(),
@@ -1003,7 +1002,7 @@ export default function ProjectOnboardingPage() {
       <div className="uc02-project-strip">
         <div><span>Project</span><ProjectSelector currentProjectName={project?.projectName} onSelectionChange={handleProjectSelection} onError={setPageError} /></div>
         <div><span>Current Project</span><strong>{project?.projectName || (canCreateProject ? 'New Project' : 'Assigned Project')}</strong></div>
-        <div><span>Setup Progress</span><strong>Step {activeStep} of {LAST_STEP}</strong></div>
+        <div><span>Setup Progress</span><strong>Step {activeStep} of 8</strong></div>
       </div>
 
       {canCreateProject && (
@@ -1026,7 +1025,7 @@ export default function ProjectOnboardingPage() {
       <section className="uc02-workspace">
         <header className="uc02-workspace__header">
           <div><small>{currentStep.short}</small><h2>{currentStep.label}</h2><p>{currentStep.description}</p></div>
-          <span className="uc02-workspace__step">Step {activeStep} of {LAST_STEP}</span>
+          <span className="uc02-workspace__step">Step {activeStep} of 8</span>
         </header>
 
         {activeStep === 1 && (
@@ -1134,20 +1133,16 @@ export default function ProjectOnboardingPage() {
           </div>
         )}
 
-        {activeStep === 7 && tenantId && (
-          <TaskSwitchesStep tenantId={tenantId} accessToken={accessToken ?? undefined} />
-        )}
-
-        {activeStep === 8 && (
+        {activeStep === 7 && (
           <div className="uc02-step-body"><div className="uc02-card uc02-list-card"><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Project Readiness</h3><p>Only Project validity and Security Tenant lifecycle are blocking. Other gaps remain visible warnings.</p></div><button className="uc02-button" type="button" onClick={() => void refreshReadiness()} disabled={busy}>Refresh Checks</button></div>{readiness ? <><div className={`uc02-readiness-banner ${readiness.readyToActivate ? 'ready' : 'blocked'}`}><strong>{readiness.readyToActivate ? 'Ready to Activate' : 'Activation Blocked'}</strong><span>Checked {new Date(readiness.evaluatedAtUtc).toLocaleString()}</span></div><div className="uc02-table-wrap"><table className="uc02-table uc02-readiness-table"><thead><tr><th>Area</th><th>Check</th><th>Status</th><th>Severity</th><th>Reason</th><th>Action</th></tr></thead><tbody>{readiness.checks.map((check) => { const target = targetStepForCheck(check); return <tr key={check.checkKey}><td>{check.area}</td><td><strong>{check.checkKey}</strong></td><td><StatusPill value={check.status} compact /></td><td>{check.severity}</td><td>{check.message}</td><td>{target && check.status !== 'PASS' ? <button className="uc02-link-button" type="button" onClick={() => goToStep(target)}>Go to Step {target}</button> : '—'}</td></tr>; })}</tbody></table></div></> : <EmptyMessage>Readiness has not been loaded.</EmptyMessage>}</div></div>
         )}
 
-        {activeStep === 9 && (
+        {activeStep === 8 && (
           <div className="uc02-step-body uc02-activation-stack"><div className="uc02-card"><div className="uc02-card__title"><h3>Activation Summary</h3><p>Lazy loading is preserved; this summary does not force-load every Dealer Outlet.</p></div><div className="uc02-summary-grid"><div><span>Project</span><strong>{project?.projectName || '—'}</strong></div><div><span>Status</span><StatusPill value={project?.projectStatus || 'UNKNOWN'} /></div><div><span>Dealers</span><strong>{dealers.length}</strong></div><div><span>Outlets Loaded This Session</span><strong>{loadedOutlets.length}</strong></div><div><span>Role Mappings</span><strong>{mappings.length}</strong></div><div><span>Segments</span><strong>{project?.segments.length || 0}</strong></div></div></div><div className="uc02-card"><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Activation Gate</h3><p>Warnings do not disable activation.</p></div><button className="uc02-button" type="button" onClick={() => void refreshReadiness()} disabled={busy}>Re-check Readiness</button></div>{readiness ? <div className={`uc02-readiness-banner ${readiness.readyToActivate ? 'ready' : 'blocked'}`}><strong>{readiness.readyToActivate ? 'Blocking Checks Passed' : 'Project Is Not Ready'}</strong><span>{readiness.checks.filter((item) => item.severity === 'BLOCKING' && item.status !== 'PASS').length} blocking item(s) remaining · {readiness.checks.filter((item) => item.severity === 'WARNING' && item.status !== 'PASS').length} warning(s)</span></div> : <EmptyMessage>Readiness has not been checked.</EmptyMessage>}<div className="uc02-actions"><button className="uc02-button uc02-button--primary" type="button" onClick={() => void doActivate()} disabled={busy || !readiness?.readyToActivate || project?.projectStatus === 'ACTIVE'}>{project?.projectStatus === 'ACTIVE' ? 'Project Is Active' : busy ? 'Activating…' : 'Activate Project'}</button></div></div></div>
         )}
       </section>
 
-      <footer className="uc02-footer-nav"><button className="uc02-button" type="button" disabled={activeStep === 1} onClick={() => goToStep(activeStep - 1)}>Previous</button><span>{currentStep.label}</span><button className="uc02-button uc02-button--primary" type="button" disabled={activeStep === LAST_STEP || !projectConfigured} onClick={() => goToStep(activeStep + 1)}>Next</button></footer>
+      <footer className="uc02-footer-nav"><button className="uc02-button" type="button" disabled={activeStep === 1} onClick={() => goToStep(activeStep - 1)}>Previous</button><span>{currentStep.label}</span><button className="uc02-button uc02-button--primary" type="button" disabled={activeStep === 8 || !projectConfigured} onClick={() => goToStep(activeStep + 1)}>Next</button></footer>
     </div>
   );
 }

@@ -39,7 +39,7 @@ The app's build number is added by the release workflow and is not written here.
 - **A Team Lead's own attendance requests** (late, early, location, short day and corrections) go to the Project Manager or Executive, never to another Team Lead.
 
 ### Changed
-- **Project Administration → Tasks** (new step 7): every kind of task this Project's checks raise, with how many are open and raised in the last 30 days. Switch one off when it is not relevant for now: its check stops for the Project and its open tasks leave the existing journeys. Switch it on again at any time and every booking is checked again. Each change asks for a reason and keeps who and when. Tenant Admin and Super Admin only. Readiness and Activate Project are now steps 8 and 9.
+- **Project Administration → Tasks raised** (new section, Super Admin): every kind of task this Project's checks raise, with how many are open and raised in the last 30 days. Switch one off when it is not relevant for now: its check stops for the Project and its open tasks leave the existing journeys. Switch it on again at any time and every booking is checked again. Each change asks for a reason and keeps who and when.
 - **Daily Gate Pass task removed** (PC): the gate out register is now on **My duties today**, so the separate Daily Gate Pass task no longer appears in your tasks. The gate register itself and its screens are unchanged.
 - **Apply for leave**: paid leave and comp-off cannot be chosen when none is available; the form shows how many days are available.
 

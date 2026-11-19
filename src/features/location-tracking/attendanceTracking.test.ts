@@ -22,7 +22,7 @@ vi.mock('../../services/audit-core/locationTracking', async (original) => ({
 vi.mock('../../services/audit-core/client', () => ({ auditCoreBaseUrl: () => 'https://verigence.example/audit-core' }));
 
 import { beginTracking, resetTrackingMemory, syncTracking, trackingDecision } from './attendanceTracking';
-import { trackingPanelText } from './trackingText';
+import { trackingAsk } from './trackingText';
 import { coverageText } from '../dealguard-presence/LocationChecksLog';
 
 // 16 Nov 2026, 11:00 IST.
@@ -97,15 +97,38 @@ describe('the phone records the location from check-in to check-out', () => {
 });
 
 describe('what the person and the report read', () => {
-  it('says what the phone is doing', () => {
-    const active = trackingPanelText({ available: true, active: true, pending: 2, lastReadingMs: Date.parse('2026-11-16T05:20:00Z') }, null, NOW);
-    expect(active.title).toBe('Recording your work location');
-    expect(active.detail).toContain('Last reading 10:50.');
-    expect(active.detail).toContain('2 readings kept on the phone');
-    expect(trackingPanelText({ available: true, active: false }, { started: false, reason: 'NO_PROJECT' }, NOW).detail)
-      .toContain('not assigned to a Project');
-    expect(trackingPanelText({ available: true, active: false, locationPermission: false }, null, NOW).detail)
-      .toContain('permission is off');
+  it('asks for one phone setting at a time, in a line, and says nothing when there is nothing to ask', () => {
+    const active = { available: true, active: true, pending: 2, lastReadingMs: Date.parse('2026-11-16T05:20:00Z') };
+    // Product owner, 19 Nov 2026: "just ask them to allow all time".
+    expect(trackingAsk({ ...active, backgroundPermission: false, unrestrictedBattery: false }, null, NOW))
+      .toEqual({ kind: 'ALLOW_ALWAYS', text: 'Please set location for Verigence to Allow all the time.' });
+    expect(trackingAsk({ ...active, backgroundPermission: true, unrestrictedBattery: false }, null, NOW)?.kind).toBe('KEEP_RUNNING');
+    expect(trackingAsk({ ...active, backgroundPermission: true, unrestrictedBattery: true }, null, NOW)).toBeNull();
+    expect(trackingAsk(active, null, NOW)).toBeNull();
+  });
+
+  it('never tells the person an hour, and is quiet about what they cannot change', () => {
+    const off = { available: true, active: false };
+    const evening = Date.parse('2026-11-16T14:30:00Z'); // 20:00 IST
+    const every = [
+      trackingAsk({ available: true, active: true, backgroundPermission: false }, null, NOW),
+      trackingAsk({ available: true, active: true, backgroundPermission: true, unrestrictedBattery: false }, null, NOW),
+      trackingAsk(off, null, NOW),
+      trackingAsk(off, { started: false, reason: 'FAILED' }, NOW),
+      trackingAsk(off, { started: false, reason: 'NO_LOCATION_PERMISSION' }, NOW),
+      trackingAsk({ ...off, locationPermission: false }, null, NOW),
+    ];
+    for (const ask of every) {
+      expect(ask).not.toBeNull();
+      expect(ask!.text).not.toMatch(/\d/);
+      expect(ask!.text).not.toMatch(/record|only|must|latest/i);
+    }
+    expect(trackingAsk(off, null, NOW)?.kind).toBe('TURN_ON');
+    expect(trackingAsk({ ...off, locationPermission: false }, null, NOW)?.kind).toBe('PHONE_SETTINGS');
+    // A PC working late is told nothing about hours; nor is one with no Project.
+    expect(trackingAsk(off, null, evening)).toBeNull();
+    expect(trackingAsk(off, { started: false, reason: 'WINDOW_OVER' }, evening)).toBeNull();
+    expect(trackingAsk(off, { started: false, reason: 'NO_PROJECT' }, NOW)).toBeNull();
   });
 
   it('puts checked hours against hours on DealGuard', () => {

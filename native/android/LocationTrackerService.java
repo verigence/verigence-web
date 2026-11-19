@@ -153,8 +153,9 @@ public class LocationTrackerService extends Service {
             this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("Verigence is recording your work location")
-            .setContentText("Until you check out, and only up to 19:30.")
+            // Product owner, 19 Nov 2026: no strong wording and no hours in what the person reads.
+            .setContentTitle("Verigence")
+            .setContentText("Work location is on until you check out.")
             .setContentIntent(content)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

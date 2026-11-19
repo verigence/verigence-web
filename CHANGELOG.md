@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Changed
+- **My attendance – location** (everyone, Android app): your work location is now noted until you check out, also when you work late. Nothing changes on your screen.
+
 ## [1.9.1] - 2026-11-19
 
 ### Added

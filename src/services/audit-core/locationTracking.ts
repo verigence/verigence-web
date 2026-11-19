@@ -11,7 +11,7 @@ import { auditCoreRequest } from './client';
  */
 export type TrackingStart = {
   tracking: boolean;
-  /** Why not: NO_PROJECT or WINDOW_OVER (after 19:30 IST). */
+  /** Why not: NO_PROJECT or WINDOW_OVER (the day is over). */
   reason?: string | null;
   tenantId?: string | null;
   projectName?: string | null;

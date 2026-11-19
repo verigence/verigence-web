@@ -49,7 +49,7 @@ function Panel() {
   }, [refresh]);
 
   if (!status) return null;
-  const ask = trackingAsk(status, problem, Date.now());
+  const ask = trackingAsk(status, problem);
 
   const startNow = async () => {
     if (!accessToken) return;

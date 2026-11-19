@@ -80,6 +80,8 @@
 .hr-att-camera__cover { position: relative; z-index: 1; padding: 16px; color: #f2f4f7; font-size: 13px; line-height: 1.5; text-align: center; background: rgba(16, 24, 40, .82); width: 100%; box-sizing: border-box; }
 .hr-att-locstatus { display: flex; flex-direction: column; gap: 6px; }
 .hr-att-locstatus .uc01-admin-message { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+/* The one phone setting asked for between check-in and check-out: a line and a button. */
+.hr-att-location-ask { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .hr-att-page .hr-att-inline-button, .hr-att-dialog .hr-att-inline-button { min-height: 44px; }
 .hr-att-dialog .hr-field textarea { font-size: 16px; }
 

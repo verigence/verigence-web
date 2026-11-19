@@ -2,40 +2,41 @@ import type { TrackerStatus } from '../../services/device/backgroundLocation';
 import type { BeginResult } from './attendanceTracking';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60_000;
+const WINDOW_END_MINUTE = 19 * 60 + 30;
 
-function clock(ms: number): string {
-  const d = new Date(ms + IST_OFFSET_MS);
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-}
+/**
+ * The one thing the location card on My attendance asks of the person, or null when there is
+ * nothing to ask (product owner, 19 Nov 2026: "lets not put such strong wordings and time
+ * limits.. PC can work late at times.. dont put all this verbage.. just ask them to allow all
+ * time"). One short, polite line and one button; no hours, no explanation of how recording works,
+ * and nothing at all when the phone is set up or when there is nothing the person can do.
+ */
+export type TrackingAsk =
+  | { kind: 'ALLOW_ALWAYS'; text: string }
+  | { kind: 'KEEP_RUNNING'; text: string }
+  | { kind: 'TURN_ON'; text: string }
+  | { kind: 'PHONE_SETTINGS'; text: string };
 
-/** The words of the tracking panel on My attendance. */
-export function trackingPanelText(
-  status: TrackerStatus, problem: BeginResult | null, now: number,
-): { title: string; detail: string } {
+export function trackingAsk(status: TrackerStatus, problem: BeginResult | null, now: number): TrackingAsk | null {
   if (status.active) {
-    const parts = ['Your location is recorded every 20 minutes until you check out (at the latest 19:30), even when the app is closed.'];
-    if (status.lastReadingMs) parts.push(`Last reading ${clock(status.lastReadingMs)}.`);
-    if (status.pending) {
-      parts.push(`${status.pending} reading${status.pending === 1 ? '' : 's'} kept on the phone, sent when there is a network.`);
+    if (status.backgroundPermission === false) {
+      return { kind: 'ALLOW_ALWAYS', text: 'Please set location for Verigence to Allow all the time.' };
     }
-    return { title: 'Recording your work location', detail: parts.join(' ') };
+    // Asked only once the first is done: one request at a time.
+    if (status.unrestrictedBattery === false) {
+      return { kind: 'KEEP_RUNNING', text: 'Please keep Verigence running in the background.' };
+    }
+    return null;
   }
+  const noPermission: TrackingAsk = { kind: 'PHONE_SETTINGS', text: 'Please turn on location for Verigence in the phone settings.' };
   if (problem && !problem.started) {
-    const why: Record<string, string> = {
-      NO_PROJECT: 'You are not assigned to a Project, so there is nothing to record the location against.',
-      WINDOW_OVER: 'Recording runs only until 19:30.',
-      NO_LOCATION_PERMISSION: 'Location permission is off for Verigence. Turn it on in the phone settings, then try again.',
-      NOT_ANDROID: 'Recording needs the Verigence Android app.',
-      FAILED: 'It could not be started. Check the network and try again.',
-    };
-    return { title: 'Location is not being recorded', detail: why[problem.reason] ?? why.FAILED };
+    if (problem.reason === 'NO_LOCATION_PERMISSION') return noPermission;
+    if (problem.reason === 'FAILED') return { kind: 'TURN_ON', text: 'Location could not be turned on. Please check the network and try again.' };
+    // No Project, not the Android app, or past the day's hours: nothing the person can do.
+    return null;
   }
-  if (status.locationPermission === false) {
-    return { title: 'Location is not being recorded', detail: 'Location permission is off for Verigence. Turn it on in the phone settings.' };
-  }
-  const late = new Date(now + IST_OFFSET_MS).getUTCHours() * 60 + new Date(now + IST_OFFSET_MS).getUTCMinutes() >= 19 * 60 + 30;
-  return {
-    title: 'Location is not being recorded',
-    detail: late ? 'Recording runs only until 19:30.' : 'You are checked in, but recording has stopped on this phone.',
-  };
+  if (status.locationPermission === false) return noPermission;
+  const ist = new Date(now + IST_OFFSET_MS);
+  if (ist.getUTCHours() * 60 + ist.getUTCMinutes() >= WINDOW_END_MINUTE) return null;
+  return { kind: 'TURN_ON', text: 'Location is off on this phone.' };
 }

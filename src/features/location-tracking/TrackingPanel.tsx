@@ -11,14 +11,15 @@ import {
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { beginTracking, type BeginResult } from './attendanceTracking';
-import { trackingPanelText } from './trackingText';
+import { trackingAsk } from './trackingText';
 
 const REFRESH_MS = 30_000;
 
 /**
- * On My attendance in the Android app: whether the phone is recording the
- * location (check-in to check-out, 2026-11-16) and the two phone settings that
- * keep it running. Nothing outside the Android app or when not checked in.
+ * On My attendance in the Android app, between check-in and check-out: the one phone setting the
+ * person is asked for, in one line (product owner, 19 Nov 2026: no strong wording, no hours, "just
+ * ask them to allow all time"). Nothing when the phone is set up, outside the Android app or when
+ * not checked in.
  */
 export default function TrackingPanel({ today }: { today: AttendanceToday }) {
   if (!trackerAvailable()) return null;
@@ -48,7 +49,7 @@ function Panel() {
   }, [refresh]);
 
   if (!status) return null;
-  const text = trackingPanelText(status, problem, Date.now());
+  const ask = trackingAsk(status, problem, Date.now());
 
   const startNow = async () => {
     if (!accessToken) return;
@@ -59,32 +60,24 @@ function Panel() {
     await refresh();
   };
 
+  if (!ask) return null;
   return (
-    <div className={`uc01-admin-message ${status.active ? 'uc01-admin-message--info' : 'uc01-admin-message--error'}`}
-      role="status">
-      <strong>{text.title}</strong>
-      <p>{text.detail}</p>
-      {!status.active && (
-        <button type="button" className="uc01-admin-button" disabled={busy} onClick={() => void startNow()}>
-          Start recording
+    <div className="uc01-admin-message uc01-admin-message--info hr-att-location-ask" role="status">
+      <span>{ask.text}</span>
+      {ask.kind === 'ALLOW_ALWAYS' && (
+        <button type="button" className="uc01-admin-button" onClick={async () => setStatus(await requestBackgroundLocation())}>
+          Allow all the time
         </button>
       )}
-      {status.active && status.backgroundPermission === false && (
-        <p>
-          Set location for Verigence to <strong>Allow all the time</strong>, so recording carries on after the phone
-          restarts.{' '}
-          <button type="button" className="uc01-admin-button" onClick={async () => setStatus(await requestBackgroundLocation())}>
-            Allow all the time
-          </button>
-        </p>
+      {ask.kind === 'KEEP_RUNNING' && (
+        <button type="button" className="uc01-admin-button" onClick={async () => setStatus(await requestUnrestrictedBattery())}>
+          Keep running
+        </button>
       )}
-      {status.active && status.unrestrictedBattery === false && (
-        <p>
-          Some phones stop apps to save battery.{' '}
-          <button type="button" className="uc01-admin-button" onClick={async () => setStatus(await requestUnrestrictedBattery())}>
-            Keep Verigence running
-          </button>
-        </p>
+      {ask.kind === 'TURN_ON' && (
+        <button type="button" className="uc01-admin-button" disabled={busy} onClick={() => void startNow()}>
+          Turn on
+        </button>
       )}
     </div>
   );

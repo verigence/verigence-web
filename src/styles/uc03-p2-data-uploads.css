@@ -244,3 +244,5 @@
   .dmsi-row__state .p2w-button { width: 100%; }
   .dmsi-tools .p2du-switcher button { font-size: .75rem; }
 }
+
+.dmsi-carried { justify-self: start; }

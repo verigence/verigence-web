@@ -71,8 +71,8 @@ const shell = [
     });
     return { kind, dealerId: 'dealer-1', dealerName: 'Aditya Motors', view: 'new',
       dump: { dumpId: 'dump-1', dumpDate: today, previousDumpDate: yesterday },
-      counts: { new: 3, open: 2, month: 40 }, newStates: { IN_VERIGENCE: 1, INTIMATED: 1, OPEN: 1 },
-      items: [row(1, 'OPEN'), row(2, 'INTIMATED', true), row(3, 'IN_VERIGENCE')], truncated: false };
+      counts: { new: 4, open: 1, month: 40 }, newStates: { IN_VERIGENCE: 1, INTIMATED: 1, OPEN: 2 },
+      items: [row(1, 'OPEN'), row(2, 'INTIMATED', true), row(3, 'IN_VERIGENCE'), { ...row(4, 'OPEN'), carried: true }], truncated: false };
   }],
   ['GET', /\/security\/v1\/status\/maintenance/, () => ({ maintenance: null })],
   ['GET', /\/security\/v1\/status\/app-version/, () => ({})],

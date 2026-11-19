@@ -191,7 +191,7 @@ const emptyOutletForm = () => ({
   status: 'ACTIVE',
 });
 
-export default function ProjectAdministrationV2Page() {
+export default function ProjectOnboardingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const accessToken = useSessionStore((state) => state.accessToken);
   const tenantId = useSessionStore((state) => state.tenantId);
@@ -995,8 +995,8 @@ export default function ProjectAdministrationV2Page() {
     <div className="screen-stack uc02-admin">
       <PageHeader
         eyebrow="Administration"
-        title="Project Administration"
-        description="Configure Project setup with lazy, context-based loading. Only Project validity and Security Tenant lifecycle block activation."
+        title="Project Onboarding"
+        description="Set up a Project in eight steps: its details, dealers, outlets, people and roles, masters, then activation. The Project's running settings are under Project Administration."
         actions={project && <StatusPill value={project.projectStatus} />}
       />
 
@@ -1031,7 +1031,7 @@ export default function ProjectAdministrationV2Page() {
 
         {activeStep === 1 && (
           <div className="uc02-step-body">
-            {!project && !canCreateProject ? <EmptyMessage>Select the assigned Project before opening Project Administration.</EmptyMessage> : (
+            {!project && !canCreateProject ? <EmptyMessage>Select the assigned Project before opening Project Onboarding.</EmptyMessage> : (
               <form className="uc02-card uc02-card--form" onSubmit={submitProject}>
                 <div className="uc02-card__title"><h3>{project ? 'Project Details' : 'Create Project'}</h3><p>Project creation provisions Security, Audit Core and DI together.</p></div>
                 <div className="uc02-form-grid">

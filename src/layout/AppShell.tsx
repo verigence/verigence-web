@@ -26,6 +26,7 @@ import { syncDeviceDiagnostics } from '../services/security/deviceDiagnostics';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useTrackScreens } from '../components/BackLink';
+import { PROJECT_ADMINISTRATION_PATH, PROJECT_ONBOARDING_PATH } from '../features/project-admin/projectAdministrationPaths';
 
 type ShellRole = UserRole | OperatingRole;
 // ``children``: a group of screens shown as one entry in the left pane, the screens as tabs across
@@ -41,11 +42,20 @@ const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
 // Analytics is read by a Team Lead and above, over their own outlets (product owner 2026-11-10).
 const analyticsRoles: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', ...admin];
 
+// Product owner, 19 Nov 2026: two entries, so SuperAdmin does not get lost. Project Onboarding sets
+// a Project up (the eight steps); Project Administration holds its running settings.
+const projectOnboardingItem: NavItem = {
+  to: PROJECT_ONBOARDING_PATH,
+  label: 'Project Onboarding',
+  mark: 'PO',
+  roles: admin,
+};
+
 const projectAdministrationItem: NavItem = {
-  to: '/admin/project',
+  to: PROJECT_ADMINISTRATION_PATH,
   label: 'Project Administration',
   mark: 'PA',
-  roles: admin,
+  roles: ['SUPER_ADMIN'],
 };
 
 const createBookingItem: NavItem = {
@@ -401,6 +411,7 @@ const groups: NavGroup[] = [
     { to: '/admin/reports', label: 'Reports', mark: 'RP', roles: ['SUPER_ADMIN'] },
     { to: '/admin/task-manager', label: 'Task Manager', mark: 'WK', roles: ['SUPER_ADMIN'] },
     { to: '/admin/system-health', label: 'System health', mark: 'SH', roles: ['SUPER_ADMIN'] },
+    projectOnboardingItem,
     projectAdministrationItem,
   ] },
 ];
@@ -413,7 +424,7 @@ const routeLabels: Record<string, string> = {
   '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/project-tracker': 'Project Tracker', '/p2/data-uploads': 'Data uploads', '/p2/dms-intimations': 'Intimation', '/p2/reports/dms': 'DMS report', '/p2/gate-pass': 'Daily gate pass', '/p2/missing-documents': 'Missing documents', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/p2/reports/location-checks': 'Location checks', '/p2/reports/journey-export': 'Export to Excel', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/night-control': 'Night Control', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
-  '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', [PROJECT_ONBOARDING_PATH]: 'Project Onboarding', [PROJECT_ADMINISTRATION_PATH]: 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
   '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/p2/drive-uploads': 'Drive uploads', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/attendance/overview': 'Attendance Overview', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/requests': 'My Requests', '/hr/leave/overview': 'Leave Overview', '/hr/oversight': 'Team Lead Approvals',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
@@ -644,7 +655,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [
       ...operationalGroups,
-      { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
+      { key: 'administration', label: 'Administration', items: [projectOnboardingItem] },
     ];
   }, [c0OperationalShell, role, sessionRole, p2TaskCount, tmCount]);
 
@@ -808,7 +819,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const canSeeItem = (item: NavItem) => {
     if (item.devOnly && !diTestAvailable) return false;
     if (!item.roles) return true;
-    if (item.to === '/admin/project' && sessionRole === 'TENANT_ADMIN') return true;
+    if (item.to === PROJECT_ONBOARDING_PATH && sessionRole === 'TENANT_ADMIN') return true;
     return item.roles.includes(role);
   };
 

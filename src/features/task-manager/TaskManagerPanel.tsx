@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 import {
   getTmContext, getTmTasks, type TaskManagerMode, type TmStatusFilter, type TmView,
@@ -21,8 +22,10 @@ function errorText(cause: unknown): string {
  * raised, everything (PM, Executive, Superadmin) and the recurring tasks.
  * The same panel serves Project users and Superadmin (mode "admin").
  */
-export default function TaskManagerPanel({ mode, tenantId, accessToken }: {
+export default function TaskManagerPanel({ mode, tenantId, accessToken, recurringLink }: {
   mode: TaskManagerMode; tenantId: string; accessToken?: string;
+  /** SuperAdmin: recurring tasks are a setting of the Project, kept in Project Administration. */
+  recurringLink?: string;
 }) {
   const [tab, setTab] = useState<Tab>(mode === 'admin' ? 'all' : 'mine');
   const [status, setStatus] = useState<TmStatusFilter>('open');
@@ -52,7 +55,7 @@ export default function TaskManagerPanel({ mode, tenantId, accessToken }: {
     { key: 'review', label: 'To review', count: counts?.REVIEW, show: true },
     { key: 'raised', label: 'Raised by me', count: counts?.RAISED, show: canRaise },
     { key: 'all', label: 'All tasks', count: counts?.ALL, show: Boolean(ctx?.canSeeAll) },
-    { key: 'recurring', label: 'Recurring', show: Boolean(ctx?.canSeeSchedules) },
+    { key: 'recurring', label: 'Recurring', show: Boolean(ctx?.canSeeSchedules) && !recurringLink },
   ];
   const items = tasks.data?.items ?? [];
   const overdue = items.filter((t) => t.overdue || t.missed || t.incomplete).length;
@@ -73,6 +76,9 @@ export default function TaskManagerPanel({ mode, tenantId, accessToken }: {
         ) : null}
       </div>
       {ctx?.role ? <p className="p2w-muted">You are working as {roleLabel(ctx.role)}.{!canRaise ? ' Your role receives tasks but does not assign them.' : ''}</p> : null}
+      {recurringLink && ctx?.canSeeSchedules ? (
+        <p className="p2w-muted">Recurring tasks are set up under <Link to={recurringLink}>Project Administration</Link>, Recurring tasks.</p>
+      ) : null}
       {context.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{errorText(context.error)}</div> : null}
       {notice ? (
         <div className="p2w-alert p2w-alert--success" role="status">

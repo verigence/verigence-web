@@ -1,51 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import {
-  getAppVersionImpact,
-  getAppVersionPolicy,
-  setAppVersionPolicy,
-  type DevicesBelow,
-} from '../../services/security/appVersion';
+import { getAppVersionImpact, getAppVersionPolicy, setAppVersionPolicy } from '../../services/security/appVersion';
+import BelowList from './BelowList';
+import ProjectVersionList from './ProjectVersionList';
 import { isVersion } from './appVersionLogic';
-
-const policyKey = ['security', 'app-version-policy'] as const;
-
-/** A stored instant as the value of a datetime-local input, in India time. */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).formatToParts(new Date(iso));
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
-}
-
-/** A datetime-local value, read as India time, as an ISO instant. */
-function fromLocalInput(value: string): string | null {
-  return value ? `${value}:00+05:30` : null;
-}
-
-function formatIst(iso: string): string {
-  return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
-}
-
-function BelowList({ rows }: { rows: DevicesBelow[] }) {
-  if (rows.length === 0) return <p className="hr-field__hint">No app installation seen in the last 30 days is below this version.</p>;
-  const people = rows.reduce((n, r) => n + r.people, 0);
-  return (
-    <div>
-      <p className="hr-field__hint">Seen in the last 30 days and below this version: {people} {people === 1 ? 'person' : 'people'}.</p>
-      <ul className="ar-version-list">
-        {rows.map((r) => (
-          <li key={r.appVersion ?? 'unknown'}>
-            <b>{r.appVersion ?? 'Too old to report a version'}</b>: {r.devices} {r.devices === 1 ? 'device' : 'devices'}, {r.people} {r.people === 1 ? 'person' : 'people'}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+import { formatIst, fromLocalInput, policyKey, toLocalInput } from './appVersionPolicyFormat';
 
 /**
  * SuperAdmin: the oldest app version that may still be used. From the chosen time, an older app
@@ -143,6 +103,7 @@ export default function AppVersionPolicyPanel({ accessToken, latest }: { accessT
           </button>
         )}
       </div>
+      {current.projects && <ProjectVersionList projects={current.projects} />}
     </section>
   );
 }

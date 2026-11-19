@@ -69,6 +69,7 @@ const shell = [
       dealType: n % 2 ? 'INSCOPE' : 'OUTSCOPE', dealTypeBasis: 'Booked on 2 Oct 2026. VIN made Oct 2026.',
       journeyId: state === 'IN_VERIGENCE' ? 'journey-mobile-1' : null, journeyReference: state === 'IN_VERIGENCE' ? 'ADI-BO-261118-001' : null,
       mark: mark ? { byName: 'Pc One', atUtc: `${today}T06:00:00Z`, mine: true } : null,
+      journeyOutlet: 'CDA', journeyUploadedBy: 'Another Pc', canOpenJourney: n !== 3,
     });
     return { kind, dealerId: 'dealer-1', dealerName: 'Aditya Motors', view: 'new',
       dump: { dumpId: 'dump-1', dumpDate: today, previousDumpDate: yesterday },

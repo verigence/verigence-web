@@ -99,8 +99,12 @@ export type DmsReport = DmsReportSummary & {
     dealerName: string;
     bookingDumpDate: string | null;
     deliveryDumpDate: string | null;
-    figures: Record<string, number>;
+    figures: Record<string, number | null>;
   }[];
+  /** Found in Verigence, but Verigence dates the booking / delivery outside the dump's days (2026-11-19). */
+  datedElsewhere?: { dealerName: string; kind: string; location: string | null; dmsDate: string | null;
+    customerName: string | null; otf: string | null; chassis: string | null; journeyReference: string | null;
+    verigenceDate: string | null; datedBy: string; period: string }[];
   /** Matched on chassis / booking number / mobile, but the customer is not the Journey's (2026-11-19). */
   nameDiffers?: { dealerName: string; kind: string; location: string | null; eventDate: string | null;
     dmsCustomer: string | null; journeyCustomer: string | null; journeyReference: string | null;

@@ -135,19 +135,45 @@ export default function P2DmsReportsPage() {
               line.startsWith('*') ? <p key={i}>{line}</p> : <p key={i} className="dmsr-statement__dealer">{line}</p>
             ))}
           </div>
+          <h4 className="dmsr-heading">Bookings: DMS against Verigence</h4>
+          <p className="p2w-muted">DMS = synced + dated outside the period + not in Verigence. Verigence = synced + not in DMS + not compared.</p>
           <div className="p2du-scroll">
             <table className="p2du-table">
-              <thead><tr><th>Dealership</th><th>Booking dump</th><th>Delivery dump</th><th className="num">Bookings</th><th className="num">Synced</th>
-                <th className="num">Intimated</th><th className="num">Not intimated</th><th className="num">Deliveries</th><th className="num">Synced</th>
-                <th className="num">Intimated</th><th className="num">Not intimated</th><th className="num">Inscope</th><th className="num">Outscope</th><th className="num">Gate register</th><th className="num">Registers missed</th></tr></thead>
+              <thead><tr><th>Dealership</th><th>Dump of</th><th className="num">As per DMS</th><th className="num">Synced</th>
+                <th className="num">In Verigence, dated outside the period</th><th className="num">Not in Verigence</th>
+                <th className="num">In Verigence</th><th className="num">In Verigence, not in DMS</th><th className="num">Not compared (no dump)</th>
+                <th className="num">DMS less Verigence</th></tr></thead>
               <tbody>
                 {report.data.dealers.map((d) => (
                   <tr key={d.dealerId}>
-                    <td>{d.dealerName}</td><td>{d.bookingDumpDate ?? '—'}</td><td>{d.deliveryDumpDate ?? '—'}</td>
+                    <td>{d.dealerName}</td><td>{d.bookingDumpDate ?? 'No dump'}</td>
                     <td className="num">{d.figures.bookingDms ?? 0}</td><td className="num">{d.figures.bookingSynced ?? 0}</td>
-                    <td className="num">{d.figures.bookingIntimated ?? 0}</td><td className="num">{d.figures.bookingNotIntimated ?? 0}</td>
+                    <td className="num">{d.figures.bookingDatedElsewhere ?? 0}</td><td className="num">{d.figures.bookingNotInVerigence ?? 0}</td>
+                    <td className="num">{d.figures.bookingInVerigence ?? 0}</td><td className="num">{d.figures.bookingNotInDms ?? 0}</td>
+                    <td className="num">{d.figures.bookingNotCompared ?? 0}</td><td className="num">{d.figures.bookingGap ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h4 className="dmsr-heading">Deliveries: dump against Verigence</h4>
+          <p className="p2w-muted">Dump = synced + dated outside the period + delivery not uploaded + not in Verigence. Verigence = synced + not in dump + not compared.</p>
+          <div className="p2du-scroll">
+            <table className="p2du-table">
+              <thead><tr><th>Dealership</th><th>Dump of</th><th className="num">As per dump</th><th className="num">Synced</th>
+                <th className="num">In Verigence, dated outside the period</th><th className="num">Delivery not uploaded</th><th className="num">Not in Verigence</th>
+                <th className="num">In Verigence</th><th className="num">In Verigence, not in dump</th><th className="num">Not compared (no dump)</th>
+                <th className="num">Dump less Verigence</th><th className="num">Inscope</th><th className="num">Outscope</th>
+                <th className="num">Gate register</th><th className="num">Registers missed</th></tr></thead>
+              <tbody>
+                {report.data.dealers.map((d) => (
+                  <tr key={d.dealerId}>
+                    <td>{d.dealerName}</td><td>{d.deliveryDumpDate ?? 'No dump'}</td>
                     <td className="num">{d.figures.deliveryDump ?? 0}</td><td className="num">{d.figures.deliverySynced ?? 0}</td>
-                    <td className="num">{d.figures.deliveryIntimated ?? 0}</td><td className="num">{d.figures.deliveryNotIntimated ?? 0}</td>
+                    <td className="num">{d.figures.deliveryDatedElsewhere ?? 0}</td><td className="num">{d.figures.deliveryNotUploaded ?? 0}</td>
+                    <td className="num">{d.figures.deliveryNotInVerigence ?? 0}</td>
+                    <td className="num">{d.figures.deliveryInVerigence ?? 0}</td><td className="num">{d.figures.deliveryNotInDms ?? 0}</td>
+                    <td className="num">{d.figures.deliveryNotCompared ?? 0}</td><td className="num">{d.figures.deliveryGap ?? '—'}</td>
                     <td className="num">{d.figures.dumpInscope ?? 0}</td><td className="num">{d.figures.dumpOutscope ?? 0}</td>
                     <td className="num">{d.figures.gateRegister ?? 0}</td><td className="num">{d.figures.registersMissed ?? 0}</td>
                   </tr>
@@ -155,6 +181,25 @@ export default function P2DmsReportsPage() {
               </tbody>
             </table>
           </div>
+          {report.data.datedElsewhere?.length ? (
+            <div className="dmsr-review">
+              <h4>In Verigence, dated outside the period ({report.data.datedElsewhere.length})</h4>
+              <p className="p2w-muted">The DMS row is found in Verigence, but Verigence dates the booking or delivery on another day. Check the date read from the papers.</p>
+              <div className="p2du-scroll">
+                <table className="p2du-table">
+                  <thead><tr><th>Dealership</th><th>Dump</th><th>DMS date</th><th>Customer</th><th>Journey</th><th>Verigence date</th><th>Dated by</th></tr></thead>
+                  <tbody>
+                    {report.data.datedElsewhere.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.dealerName}</td><td>{r.kind}</td><td>{r.dmsDate ?? '—'}</td><td>{r.customerName ?? '—'}</td>
+                        <td>{r.journeyReference ?? '—'}</td><td>{r.verigenceDate ?? '—'}</td><td>{r.datedBy}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </SectionCard>
       ) : selected && report.isLoading ? <p className="p2w-muted">Loading…</p> : null}
 

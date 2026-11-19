@@ -13,7 +13,8 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Added
-- **Oldest app version allowed – for one Project** (SuperAdmin, Reports > App): besides the minimum for everyone, a minimum can be set for the people who work in one Project. Their Android app below it is refused at sign-in and when its session renews, and says where to download the latest. People of other Projects are not affected.
+- **Project Onboarding and Project Administration** (SuperAdmin): the eight set-up steps (Project details, dealers, outlets, employees, role mapping, masters, readiness, activation) are now called **Project Onboarding**. **Project Administration** is a new screen for a Project's running settings, in one place: choose the Project, then **Daily duties** (the duty list and its switch), **Recurring tasks** and **App version** (the oldest app version the Project's people may use). Task Manager keeps the tasks, the daily status and how the PCs are doing on their duties; Reports > App lists the Projects that have a minimum of their own. Old links to Project Administration open Project Onboarding.
+- **Oldest app version allowed – for one Project** (SuperAdmin, Project Administration > App version): besides the minimum for everyone, a minimum can be set for the people who work in one Project. Their Android app below it is refused at sign-in and when its session renews, and says where to download the latest. People of other Projects are not affected.
 
 ## [1.9.0] - 2026-11-19
 

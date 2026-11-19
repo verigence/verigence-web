@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getAppVersionImpact, getAppVersionPolicy, setAppVersionPolicy } from '../../services/security/appVersion';
 import BelowList from './BelowList';
-import ProjectVersionPolicyPanel from './ProjectVersionPolicyPanel';
+import ProjectVersionList from './ProjectVersionList';
 import { isVersion } from './appVersionLogic';
 import { formatIst, fromLocalInput, policyKey, toLocalInput } from './appVersionPolicyFormat';
 
@@ -103,10 +103,7 @@ export default function AppVersionPolicyPanel({ accessToken, latest }: { accessT
           </button>
         )}
       </div>
-      {current.projects && (
-        <ProjectVersionPolicyPanel accessToken={accessToken} latest={latest} projects={current.projects}
-          choices={current.projectChoices ?? []} everyoneMinimum={current.inForce ? current.minimumVersion : null} />
-      )}
+      {current.projects && <ProjectVersionList projects={current.projects} />}
     </section>
   );
 }

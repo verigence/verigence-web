@@ -167,8 +167,11 @@ export default function P2DmsIntimationsPage() {
                   <div className="dmsi-row__state">
                     <span className={`p2du-tag p2du-tag--${state.tone}`}>{state.label}</span>
                     {kind === 'DELIVERY' ? <span className={`p2du-tag p2du-tag--${dealTypeLabel(item.dealType).tone}`} title={item.dealTypeBasis ?? undefined}>{dealTypeLabel(item.dealType).label}</span> : null}
-                    {item.state === 'IN_VERIGENCE' && item.journeyId ? (
+                    {item.journeyId && item.canOpenJourney !== false ? (
                       <Link className="p2w-link" to={`/p2/journeys/${item.journeyId}/overview`}>{item.journeyReference}</Link>
+                    ) : null}
+                    {item.journeyId && item.canOpenJourney === false ? (
+                      <small className="p2w-muted">{item.journeyReference} · uploaded at {item.journeyOutlet ?? 'another outlet'}{item.journeyUploadedBy ? ` by ${item.journeyUploadedBy}` : ''}</small>
                     ) : null}
                     {item.bookingOnFile ? <small className="p2w-muted">Booking on file, delivery not uploaded</small> : null}
                     {item.mark ? <small className="p2w-muted">{item.mark.mine ? 'By you' : `By ${item.mark.byName}`}</small> : null}

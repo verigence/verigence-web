@@ -8,6 +8,7 @@ import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
 
 import BackLink from '../components/BackLink';
+import { AuditCoreHttpError } from '../services/audit-core/client';
 import PageHeader from '../components/PageHeader';
 
 // The two Phase 1 corrections a PC still makes by hand: the loan amount
@@ -495,6 +496,21 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
     },
     onError: (cause) => { setDeleting(false); setNotice({ tone: 'error', text: errorText(cause, 'The booking could not be deleted.') }); },
   });
+
+  // A Journey of an outlet the person does not cover (or no longer on file) answers 404: say so,
+  // and offer no upload -- it is not an empty booking (2026-11-19: a Palasuni Commercial PC
+  // opened a CDA Journey from Delivery Intimation and read "Nothing uploaded yet").
+  if (!isNew && documents.error instanceof AuditCoreHttpError && documents.error.status === 404) {
+    return (
+      <div className="screen-stack p2-screen p2w">
+        <BackLink fallbackTo={operatingRole === 'REVIEWER' ? '/p2/review' : '/p2/bookings'}
+          fallbackLabel={operatingRole === 'REVIEWER' ? 'Document Review' : 'Booking & Delivery'} />
+        <PageHeader eyebrow="Booking" title="This booking is not one you can open"
+          description="It is in Verigence, but under an outlet you are not mapped to, or it is no longer on file. Its documents are not shown here and nothing can be added to it from your login. Ask your Team Lead if it should be under your outlet." />
+        <div className="p2w-alert p2w-alert--error" role="alert"><span><small>{errorText(documents.error, '')}</small></span></div>
+      </div>
+    );
+  }
 
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>

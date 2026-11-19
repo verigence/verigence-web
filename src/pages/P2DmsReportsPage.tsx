@@ -136,11 +136,11 @@ export default function P2DmsReportsPage() {
             ))}
           </div>
           <h4 className="dmsr-heading">Bookings: DMS against Verigence</h4>
-          <p className="p2w-muted">DMS = synced + dated outside the period + not in Verigence. Verigence = synced + not in DMS + not compared.</p>
+          <p className="p2w-muted">The DMS's date decides. DMS = synced + not in Verigence. Verigence = synced + not in DMS + not compared.</p>
           <div className="p2du-scroll">
             <table className="p2du-table">
               <thead><tr><th>Dealership</th><th>Dump of</th><th className="num">As per DMS</th><th className="num">Synced</th>
-                <th className="num">In Verigence, dated outside the period</th><th className="num">Not in Verigence</th>
+                <th className="num">Not in Verigence</th>
                 <th className="num">In Verigence</th><th className="num">In Verigence, not in DMS</th><th className="num">Not compared (no dump)</th>
                 <th className="num">DMS less Verigence</th></tr></thead>
               <tbody>
@@ -148,7 +148,7 @@ export default function P2DmsReportsPage() {
                   <tr key={d.dealerId}>
                     <td>{d.dealerName}</td><td>{d.bookingDumpDate ?? 'No dump'}</td>
                     <td className="num">{d.figures.bookingDms ?? 0}</td><td className="num">{d.figures.bookingSynced ?? 0}</td>
-                    <td className="num">{d.figures.bookingDatedElsewhere ?? 0}</td><td className="num">{d.figures.bookingNotInVerigence ?? 0}</td>
+                    <td className="num">{d.figures.bookingNotInVerigence ?? 0}</td>
                     <td className="num">{d.figures.bookingInVerigence ?? 0}</td><td className="num">{d.figures.bookingNotInDms ?? 0}</td>
                     <td className="num">{d.figures.bookingNotCompared ?? 0}</td><td className="num">{d.figures.bookingGap ?? '—'}</td>
                   </tr>
@@ -157,11 +157,11 @@ export default function P2DmsReportsPage() {
             </table>
           </div>
           <h4 className="dmsr-heading">Deliveries: dump against Verigence</h4>
-          <p className="p2w-muted">Dump = synced + dated outside the period + delivery not uploaded + not in Verigence. Verigence = synced + not in dump + not compared.</p>
+          <p className="p2w-muted">The DMS's date decides. Dump = synced + delivery not uploaded + not in Verigence. Verigence = synced + not in dump + not compared.</p>
           <div className="p2du-scroll">
             <table className="p2du-table">
               <thead><tr><th>Dealership</th><th>Dump of</th><th className="num">As per dump</th><th className="num">Synced</th>
-                <th className="num">In Verigence, dated outside the period</th><th className="num">Delivery not uploaded</th><th className="num">Not in Verigence</th>
+                <th className="num">Delivery not uploaded</th><th className="num">Not in Verigence</th>
                 <th className="num">In Verigence</th><th className="num">In Verigence, not in dump</th><th className="num">Not compared (no dump)</th>
                 <th className="num">Dump less Verigence</th><th className="num">Inscope</th><th className="num">Outscope</th>
                 <th className="num">Gate register</th><th className="num">Registers missed</th></tr></thead>
@@ -170,7 +170,7 @@ export default function P2DmsReportsPage() {
                   <tr key={d.dealerId}>
                     <td>{d.dealerName}</td><td>{d.deliveryDumpDate ?? 'No dump'}</td>
                     <td className="num">{d.figures.deliveryDump ?? 0}</td><td className="num">{d.figures.deliverySynced ?? 0}</td>
-                    <td className="num">{d.figures.deliveryDatedElsewhere ?? 0}</td><td className="num">{d.figures.deliveryNotUploaded ?? 0}</td>
+                    <td className="num">{d.figures.deliveryNotUploaded ?? 0}</td>
                     <td className="num">{d.figures.deliveryNotInVerigence ?? 0}</td>
                     <td className="num">{d.figures.deliveryInVerigence ?? 0}</td><td className="num">{d.figures.deliveryNotInDms ?? 0}</td>
                     <td className="num">{d.figures.deliveryNotCompared ?? 0}</td><td className="num">{d.figures.deliveryGap ?? '—'}</td>

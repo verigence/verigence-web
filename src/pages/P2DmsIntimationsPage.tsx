@@ -7,7 +7,7 @@ import '../styles/uc03-p2-data-uploads.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
-import type { DmsDumpKind } from '../services/audit-core/uc03DmsDumps';
+import { dealTypeLabel, type DmsDumpKind } from '../services/audit-core/uc03DmsDumps';
 import {
   INTIMATION_STATE_LABELS,
   claimIntimation,
@@ -166,6 +166,7 @@ export default function P2DmsIntimationsPage() {
                   </div>
                   <div className="dmsi-row__state">
                     <span className={`p2du-tag p2du-tag--${state.tone}`}>{state.label}</span>
+                    {kind === 'DELIVERY' ? <span className={`p2du-tag p2du-tag--${dealTypeLabel(item.dealType).tone}`} title={item.dealTypeBasis ?? undefined}>{dealTypeLabel(item.dealType).label}</span> : null}
                     {item.state === 'IN_VERIGENCE' && item.journeyId ? (
                       <Link className="p2w-link" to={`/p2/journeys/${item.journeyId}/overview`}>{item.journeyReference}</Link>
                     ) : null}

@@ -107,6 +107,7 @@ export default function P2DmsReportsPage() {
             <div className="p2du-tile"><span>Deliveries in dump</span><strong>{f.deliveryDump ?? 0}</strong><small>{f.deliverySynced ?? 0} synced</small></div>
             <div className="p2du-tile p2du-tile--warn"><span>Delivery intimated to PC</span><strong>{f.deliveryIntimated ?? 0}</strong><small>not uploaded · pending with PC</small></div>
             <div className="p2du-tile p2du-tile--bad"><span>Delivery not intimated</span><strong>{f.deliveryNotIntimated ?? 0}</strong><small>pending with dealership</small></div>
+            <div className="p2du-tile"><span>Dump deliveries Inscope</span><strong>{f.dumpInscope ?? 0}</strong><small>{f.dumpOutscope ?? 0} Outscope{f.dumpOtherDealType ? ` · ${f.dumpOtherDealType} MR / Lease / Bulk` : ''}{f.dumpDealTypePending ? ` · ${f.dumpDealTypePending} pending` : ''}</small></div>
           </div>
           <div className="dmsr-statement">
             <h4>Statement</h4>
@@ -118,7 +119,7 @@ export default function P2DmsReportsPage() {
             <table className="p2du-table">
               <thead><tr><th>Dealership</th><th>Booking dump</th><th>Delivery dump</th><th className="num">Bookings</th><th className="num">Synced</th>
                 <th className="num">Intimated</th><th className="num">Not intimated</th><th className="num">Deliveries</th><th className="num">Synced</th>
-                <th className="num">Intimated</th><th className="num">Not intimated</th><th className="num">Gate register</th><th className="num">Registers missed</th></tr></thead>
+                <th className="num">Intimated</th><th className="num">Not intimated</th><th className="num">Inscope</th><th className="num">Outscope</th><th className="num">Gate register</th><th className="num">Registers missed</th></tr></thead>
               <tbody>
                 {report.data.dealers.map((d) => (
                   <tr key={d.dealerId}>
@@ -127,6 +128,7 @@ export default function P2DmsReportsPage() {
                     <td className="num">{d.figures.bookingIntimated ?? 0}</td><td className="num">{d.figures.bookingNotIntimated ?? 0}</td>
                     <td className="num">{d.figures.deliveryDump ?? 0}</td><td className="num">{d.figures.deliverySynced ?? 0}</td>
                     <td className="num">{d.figures.deliveryIntimated ?? 0}</td><td className="num">{d.figures.deliveryNotIntimated ?? 0}</td>
+                    <td className="num">{d.figures.dumpInscope ?? 0}</td><td className="num">{d.figures.dumpOutscope ?? 0}</td>
                     <td className="num">{d.figures.gateRegister ?? 0}</td><td className="num">{d.figures.registersMissed ?? 0}</td>
                   </tr>
                 ))}

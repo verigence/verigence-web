@@ -27,6 +27,7 @@ import {
   type DmsDump,
   type DmsDumpKind,
   type DmsRowOutcome,
+  dealTypeLabel,
 } from '../services/audit-core/uc03DmsDumps';
 import { istMonth, monthLabel, monthsUpTo } from '../services/audit-core/uc03ProjectTracker';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -399,7 +400,8 @@ export default function P2DataUploadsPage() {
                     <tr>
                       <th>Date</th><th>Customer</th><th>Mobile</th>
                       <th>{detail.data.kind === 'BOOKING' ? 'Booking no. / OTF' : 'Chassis'}</th>
-                      <th>Model</th><th>Outlet</th><th>Consultant</th><th>Status</th><th>Journey</th>
+                      <th>Model</th><th>Outlet</th><th>Consultant</th><th>Status</th>
+                      {detail.data.kind === 'DELIVERY' ? <th>Scope</th> : null}<th>Journey</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -414,6 +416,11 @@ export default function P2DataUploadsPage() {
                         <td>{r.consultant ?? '—'}</td>
                         <td><span className={`p2du-tag p2du-tag--${DMS_OUTCOME_LABELS[r.outcome].tone}`}>{DMS_OUTCOME_LABELS[r.outcome].label}</span>
                           {r.stage && detail.data!.kind === 'BOOKING' ? <><br /><small className="p2w-muted">DMS: {r.stage}</small></> : null}</td>
+                        {detail.data!.kind === 'DELIVERY' ? (
+                          <td title={r.dealTypeBasis ?? undefined}>
+                            {r.outcome === 'NOT_IN_DMS' ? '—' : <span className={`p2du-tag p2du-tag--${dealTypeLabel(r.dealType).tone}`}>{dealTypeLabel(r.dealType).label}</span>}
+                          </td>
+                        ) : null}
                         <td>{r.journeyId
                           ? <><Link className="p2w-link" to={`/p2/journeys/${r.journeyId}/overview`}>{r.journeyReference}</Link>
                             {r.outcome === 'NOT_IN_DMS'

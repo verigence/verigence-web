@@ -48,6 +48,9 @@ export type IntimationItem = {
   mark: { byName: string; atUtc: string; mine: boolean } | null;
   /** An earlier row of the month not yet marked, carried into this dump (2026-11-19). */
   carried?: boolean;
+  /** Delivery rows: Inscope / Outscope by the Deal Type rule (2026-11-19). */
+  dealType?: string | null;
+  dealTypeBasis?: string | null;
 };
 
 export type IntimationList = {

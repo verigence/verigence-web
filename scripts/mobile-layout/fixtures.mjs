@@ -66,6 +66,7 @@ const shell = [
       mobile: `90000000${10 + n}`, otf: `OTF27A0909${50 + n}`, bookingNumber: `B-134553${80 + n}`, chassis: `MA1NS2NP1T2K6123${n}`,
       invoiceNumber: null, registrationNumber: null, model: 'XUV 3XO', variant: 'AX5 L', stage: 'Booked', consultant: 'Sales Consultant',
       location: 'CUTTACK', outcome: state === 'IN_VERIGENCE' ? 'MATCHED' : 'MISSING', state, bookingOnFile: false,
+      dealType: n % 2 ? 'INSCOPE' : 'OUTSCOPE', dealTypeBasis: 'Booked on 2 Oct 2026. VIN made Oct 2026.',
       journeyId: state === 'IN_VERIGENCE' ? 'journey-mobile-1' : null, journeyReference: state === 'IN_VERIGENCE' ? 'ADI-BO-261118-001' : null,
       mark: mark ? { byName: 'Pc One', atUtc: `${today}T06:00:00Z`, mine: true } : null,
     });

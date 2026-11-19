@@ -65,7 +65,18 @@ export type DmsDumpRow = {
   journeyId: string | null;
   journeyReference: string | null;
   dumpDate: string;
+  /** Delivery dump rows: the Deal Type rule's Inscope / Outscope (2026-11-19); null = pending. */
+  dealType?: string | null;
+  dealTypeBasis?: string | null;
 };
+
+/** The Deal Type in words, for a delivery dump row (2026-11-19). */
+export function dealTypeLabel(value: string | null | undefined): { label: string; tone: 'ok' | 'warn' | 'bad' } {
+  if (value === 'INSCOPE') return { label: 'Inscope', tone: 'ok' };
+  if (value === 'OUTSCOPE') return { label: 'Outscope', tone: 'warn' };
+  if (value === 'MR' || value === 'LEASE' || value === 'BULK') return { label: value === 'MR' ? 'MR' : value === 'LEASE' ? 'Lease' : 'Bulk', tone: 'ok' };
+  return { label: 'Scope pending', tone: 'bad' };
+}
 
 export type DmsDayCell = { status: 'UPLOADED' | 'MISSED' | 'DUE' | 'AHEAD'; dumpId?: string; rows?: number; missing?: number; notInTool?: number };
 export type DmsCalendar = {

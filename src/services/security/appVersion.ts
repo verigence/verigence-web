@@ -17,8 +17,28 @@ export interface DevicesBelow {
   people: number;
 }
 
+/** The minimum of one Project, for the people who work in it (product owner, 19 Nov 2026). */
+export interface ProjectVersionPolicy {
+  tenantId: string;
+  tenantName: string;
+  minimumVersion: string;
+  /** null: the minimum applies at once. */
+  effectiveFrom: string | null;
+  inForce: boolean;
+  devicesBelow: DevicesBelow[];
+}
+
+export interface ProjectChoice {
+  tenantId: string;
+  tenantName: string;
+  people: number;
+}
+
 export interface AppVersionPolicy extends AppVersionStatus {
   devicesBelow: DevicesBelow[];
+  /** Absent from a Security that does not have Project minimums yet. */
+  projects?: ProjectVersionPolicy[];
+  projectChoices?: ProjectChoice[];
 }
 
 export interface AppVersionPolicyInput {
@@ -60,3 +80,14 @@ export const getAppVersionImpact = (token: string, minimumVersion: string) =>
 
 export const setAppVersionPolicy = (token: string, input: AppVersionPolicyInput) =>
   call<AppVersionPolicy>(token, 'PUT', '/security/v1/admin/app-version-policy', input);
+
+export const getProjectVersionImpact = (token: string, tenantId: string, minimumVersion: string) =>
+  call<{ devicesBelow: DevicesBelow[] }>(
+    token,
+    'GET',
+    `/security/v1/admin/app-version-policy/projects/${encodeURIComponent(tenantId)}/impact?minimumVersion=${encodeURIComponent(minimumVersion)}`,
+  );
+
+/** Sets the Project's own minimum; `minimumVersion: null` removes it. */
+export const setProjectVersionPolicy = (token: string, tenantId: string, input: AppVersionPolicyInput) =>
+  call<AppVersionPolicy>(token, 'PUT', `/security/v1/admin/app-version-policy/projects/${encodeURIComponent(tenantId)}`, input);

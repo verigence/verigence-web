@@ -1,0 +1,177 @@
+/* Project Administration → Tasks (2026-11-19): the per-Project task switches. Carbon
+   patterns: search field, content switcher, toggle, inline notification. */
+.vg-taskswitch__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 4px 0 12px;
+}
+
+.vg-taskswitch__search {
+  flex: 1 1 260px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid #8d8d8d;
+  background: #f4f4f4;
+  font: inherit;
+  font-size: 14px;
+}
+
+.vg-taskswitch__search:focus {
+  outline: 2px solid #0f62fe;
+  outline-offset: -2px;
+}
+
+.vg-taskswitch__segments {
+  display: inline-flex;
+  border: 1px solid #8d8d8d;
+}
+
+.vg-taskswitch__segments button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-right: 1px solid #8d8d8d;
+  background: #fff;
+  color: #525252;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.vg-taskswitch__segments button:last-child {
+  border-right: 0;
+}
+
+.vg-taskswitch__segments button.is-active {
+  background: #161616;
+  color: #fff;
+}
+
+.vg-taskswitch__segments button:focus-visible,
+.vg-taskswitch__toggle:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 1px;
+}
+
+.vg-taskswitch__notice,
+.vg-taskswitch__error {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-left: 3px solid #24a148;
+  background: #defbe6;
+  color: #161616;
+  font-size: 14px;
+}
+
+.vg-taskswitch__error {
+  border-left-color: #da1e28;
+  background: #fff1f1;
+}
+
+.vg-taskswitch__confirm {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #f1c21b;
+  background: #fffdf2;
+}
+
+.vg-taskswitch__confirm p {
+  margin: 0;
+  color: #525252;
+  font-size: 14px;
+}
+
+.vg-taskswitch__confirm label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #525252;
+}
+
+.vg-taskswitch__confirm textarea {
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid #8d8d8d;
+  background: #f4f4f4;
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.vg-taskswitch__table td.is-number,
+.vg-taskswitch__table th.is-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.vg-taskswitch__table td small {
+  display: block;
+  margin-top: 2px;
+  color: #6f6f6f;
+}
+
+.vg-taskswitch__table tr.is-off td {
+  background: #f4f4f4;
+  color: #6f6f6f;
+}
+
+.vg-taskswitch__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #161616;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vg-taskswitch__track {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  border-radius: 12px;
+  background: #8d8d8d;
+  transition: background 110ms;
+}
+
+.vg-taskswitch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 110ms;
+}
+
+.vg-taskswitch__toggle.is-on .vg-taskswitch__track {
+  background: #24a148;
+}
+
+.vg-taskswitch__toggle.is-on .vg-taskswitch__thumb {
+  transform: translateX(24px);
+}
+
+.vg-taskswitch__toggle:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.vg-taskswitch__why {
+  max-width: 260px;
+}
+
+.vg-taskswitch__empty {
+  margin: 16px 0;
+  color: #6f6f6f;
+}

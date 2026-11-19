@@ -109,6 +109,26 @@ export default function P2DmsReportsPage() {
             <div className="p2du-tile p2du-tile--bad"><span>Delivery not intimated</span><strong>{f.deliveryNotIntimated ?? 0}</strong><small>pending with dealership</small></div>
             <div className="p2du-tile"><span>Dump deliveries Inscope</span><strong>{f.dumpInscope ?? 0}</strong><small>{f.dumpOutscope ?? 0} Outscope{f.dumpOtherDealType ? ` · ${f.dumpOtherDealType} MR / Lease / Bulk` : ''}{f.dumpDealTypePending ? ` · ${f.dumpDealTypePending} pending` : ''}</small></div>
           </div>
+          {report.data.nameDiffers?.length ? (
+            <div className="dmsr-review">
+              <h4>Matched, but the customer name differs ({report.data.nameDiffers.length})</h4>
+              <p className="p2w-muted">The chassis, booking number or mobile agree; the customer does not. Check whether the right papers are on the journey.</p>
+              <div className="p2du-scroll">
+                <table className="p2du-table">
+                  <thead><tr><th>Dealership</th><th>Dump</th><th>Date</th><th>DMS customer</th><th>Verigence customer</th><th>Journey</th><th>Journey outlet</th><th>Matched on</th></tr></thead>
+                  <tbody>
+                    {report.data.nameDiffers.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.dealerName}</td><td>{r.kind}</td><td>{r.eventDate ?? '—'}</td><td>{r.dmsCustomer ?? '—'}</td>
+                        <td>{r.journeyCustomer ?? '—'}</td><td>{r.journeyReference ?? '—'}</td><td>{r.journeyOutlet ?? '—'}</td>
+                        <td>{r.matchedOn ?? '—'}{r.matchedOn === 'Chassis' && r.chassis ? ` ${r.chassis}` : ''}{r.matchedOn === 'Mobile' && r.mobile ? ` ${r.mobile}` : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
           <div className="dmsr-statement">
             <h4>Statement</h4>
             {(report.data.statementLines ?? []).map((line, i) => (

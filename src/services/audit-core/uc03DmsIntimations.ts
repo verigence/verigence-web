@@ -101,6 +101,11 @@ export type DmsReport = DmsReportSummary & {
     deliveryDumpDate: string | null;
     figures: Record<string, number>;
   }[];
+  /** Matched on chassis / booking number / mobile, but the customer is not the Journey's (2026-11-19). */
+  nameDiffers?: { dealerName: string; kind: string; location: string | null; eventDate: string | null;
+    dmsCustomer: string | null; journeyCustomer: string | null; journeyReference: string | null;
+    journeyOutlet: string | null; matchedOn: string | null; chassis: string | null; mobile: string | null;
+    otf: string | null }[];
   rows: { kind: DmsDumpKind; dealerName: string; location: string | null; customerName: string | null;
     intimation: string; markedBy: string | null; inVerigence: string }[];
 };

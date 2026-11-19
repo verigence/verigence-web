@@ -270,6 +270,7 @@ const operationalTsx = filesUnder('src', (relativePath) => {
   if (projectNameViews.has(relativePath)) return false;
   if (relativePath.startsWith('src/pages/Admin')) return false;
   if (relativePath.startsWith('src/pages/ProjectAdministration')) return false;
+  if (relativePath.startsWith('src/pages/ProjectOnboarding')) return false;
   if (relativePath.startsWith('src/features/project-admin/')) return false;
   return true;
 });

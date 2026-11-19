@@ -26,7 +26,7 @@ export default function ProjectAdminStepper({
   projectConfigured: boolean;
 }) {
   return (
-    <nav className="uc02-stepper" aria-label="Project administration steps">
+    <nav className="uc02-stepper" aria-label="Project onboarding steps">
       {projectAdminSteps.map((step) => {
         const disabled = step.key > 1 && !projectConfigured;
         return (

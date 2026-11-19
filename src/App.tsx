@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
-import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import AppGate from './features/announcements/AppGate';
 import AppUpdateGate from './features/appVersion/AppUpdateGate';
 import { useHrAccess } from './features/hr/hrQueries';
@@ -23,6 +23,7 @@ import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT } from './services/audit-core/uc03';
 import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
+import { PROJECT_ADMINISTRATION_PATH, PROJECT_ONBOARDING_PATH } from './features/project-admin/projectAdministrationPaths';
 import { P2_NEW_BOOKING_PATH } from './features/uc03-p2/newBookingPath';
 import { dashboardEntryFor, homePathFor } from './features/uc03-p2/dashboard/supervisoryDashboard';
 
@@ -95,7 +96,8 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const HrSupportPage = lazy(() => import('./pages/hr/HrSupportPage'));
 const HrSupportNewPage = lazy(() => import('./pages/hr/HrSupportNewPage'));
 const HrSupportTicketPage = lazy(() => import('./pages/hr/HrSupportTicketPage'));
-const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationV2Page'));
+const ProjectOnboardingPage = lazy(() => import('./pages/ProjectOnboardingPage'));
+const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const P2JourneyListPage = lazy(() => import('./pages/P2JourneyListPage'));
 const P2DiscountVariancePage = lazy(() => import('./pages/P2DiscountVariancePage'));
@@ -203,6 +205,12 @@ function SuperAdminPage({ children }: { children: ReactNode }) {
   const role = useSessionStore((state) => state.role);
   if (role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
   return <PrivatePage>{children}</PrivatePage>;
+}
+
+/** The old address of the eight steps, with whatever step it asked for. */
+function ToProjectOnboarding() {
+  const { search } = useLocation();
+  return <Navigate to={`${PROJECT_ONBOARDING_PATH}${search}`} replace />;
 }
 
 function ProjectAdminPage({ children }: { children: ReactNode }) {
@@ -442,12 +450,16 @@ export default function App() {
               <Route path="/admin/hr-housekeeping" element={<SuperAdminPage><HrHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
-              <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
+              {/* Product owner, 19 Nov 2026: Project Onboarding sets a Project up; Project Administration holds
+                  its running settings. /admin/project was the eight steps and still opens them. */}
+              <Route path={PROJECT_ONBOARDING_PATH} element={<ProjectAdminPage><ProjectOnboardingPage /></ProjectAdminPage>} />
+              <Route path={PROJECT_ADMINISTRATION_PATH} element={<SuperAdminPage><ProjectAdministrationPage /></SuperAdminPage>} />
+              <Route path="/admin/project" element={<ToProjectOnboarding />} />
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
-              <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />
-              <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />
-              <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
-              <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />
+              <Route path="/admin/project-provisioning" element={<Navigate to={PROJECT_ONBOARDING_PATH} replace />} />
+              <Route path="/admin/organization" element={<Navigate to={`${PROJECT_ONBOARDING_PATH}?step=2`} replace />} />
+              <Route path="/admin/team" element={<Navigate to={`${PROJECT_ONBOARDING_PATH}?step=5`} replace />} />
+              <Route path="/admin/masters" element={<Navigate to={`${PROJECT_ONBOARDING_PATH}?step=6`} replace />} />
               <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
               {/* HR is company-level: no project or outlet is needed, and every call is checked by the HR service. */}
               <Route path="/hr/me" element={<PrivatePage><HrMyProfilePage /></PrivatePage>} />

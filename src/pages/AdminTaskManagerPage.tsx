@@ -7,6 +7,7 @@ import '../styles/task-manager.css';
 
 import PageHeader from '../components/PageHeader';
 import DutiesSection from '../features/duties/DutiesSection';
+import { projectAdministrationLink } from '../features/project-admin/projectAdministrationPaths';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import TaskStatusSections from '../features/task-manager/TaskStatusSections';
 import { istToday } from '../features/task-manager/tmFormat';
@@ -37,8 +38,10 @@ function DailyStatus({ tenantId, accessToken }: { tenantId: string; accessToken?
 
 /**
  * Superadmin's own view of the Task Manager, one Project at a time: raise and
- * follow tasks, manage recurring tasks and the daily status. Employee
- * engagement is under Reports with DI (product owner 2026-10-27).
+ * follow tasks, the daily status and the PCs' daily duties day by day. The
+ * Project's settings (recurring tasks, the duty list) are in Project
+ * Administration (product owner 2026-11-19). Employee engagement is under
+ * Reports with DI (product owner 2026-10-27).
  */
 export default function AdminTaskManagerPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
@@ -55,7 +58,7 @@ export default function AdminTaskManagerPage() {
       <PageHeader
         eyebrow="Administration · Task Manager"
         title="Task Manager"
-        description="Assign and follow tasks, set up recurring tasks, see the daily status, and keep the PCs' daily duties of one Project at a time. Employee engagement is under Reports."
+        description="Assign and follow tasks, see the daily status and how the PCs are doing on their daily duties, one Project at a time. Recurring tasks and the duty list are under Project Administration. Employee engagement is under Reports."
       />
       <div className="tm-admin-picker">
         <label className="p2w-raise__field">
@@ -77,9 +80,15 @@ export default function AdminTaskManagerPage() {
         ) : null}
       </div>
       {projects.isError ? <div className="p2w-alert p2w-alert--error" role="alert">Projects could not be loaded.</div> : null}
-      {tenantId && section === 'tasks' ? <TaskManagerPanel key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
+      {tenantId && section === 'tasks' ? (
+        <TaskManagerPanel key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}
+          recurringLink={projectAdministrationLink(tenantId, 'recurring')} />
+      ) : null}
       {tenantId && section === 'status' ? <DailyStatus key={tenantId} tenantId={tenantId} accessToken={accessToken} /> : null}
-      {tenantId && section === 'duties' ? <DutiesSection key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
+      {tenantId && section === 'duties' ? (
+        <DutiesSection key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}
+          settingsLink={projectAdministrationLink(tenantId, 'duties')} />
+      ) : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import { selectOperationalProject } from '../features/uc03/projectContext';
 import { listProjects, listRoleMappings, type OperatingRole as Uc02OperatingRole } from '../services/audit-core/uc02Admin';
+import { PROJECT_ONBOARDING_PATH } from '../features/project-admin/projectAdministrationPaths';
 import { listMyOperationalProjects } from '../services/audit-core/uc03';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -95,7 +96,7 @@ export default function AdminLandingPage() {
         eyebrow="Verigence Administration"
         title="Overview"
         description="A high-level view of Project staffing and the Verigence Project estate."
-        actions={<Link to="/admin/project" className="uc01-admin-button uc01-admin-button--primary">Project Provisioning</Link>}
+        actions={<Link to={PROJECT_ONBOARDING_PATH} className="uc01-admin-button uc01-admin-button--primary">Project Provisioning</Link>}
       />
 
       {summaryQuery.isError ? (
@@ -116,7 +117,7 @@ export default function AdminLandingPage() {
       <section className="admin-landing__projects" aria-labelledby="admin-projects-title">
         <header>
           <div><span className="eyebrow">Operational access</span><h2 id="admin-projects-title">Open a Project</h2><p>Select a Project where you currently hold an operating role. Project provisioning and configuration remain available under Administration.</p></div>
-          <Link to="/admin/project" className="uc01-admin-button">Manage Projects</Link>
+          <Link to={PROJECT_ONBOARDING_PATH} className="uc01-admin-button">Manage Projects</Link>
         </header>
 
         {operationalProjectsQuery.isPending && <div className="admin-landing__project-state">Loading your Projects…</div>}

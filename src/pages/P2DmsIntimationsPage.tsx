@@ -27,8 +27,9 @@ function day(value: string | null | undefined): string {
 
 /**
  * Booking / Delivery Intimation (product owner 18 Nov 2026): once a DMS dump is uploaded, the PC
- * opens this tab, sees the dump's rows of the outlets grouped with theirs in the DMS (the days
- * since the previous dump by default), searches by customer name, mobile or OTF, and marks the
+ * opens this tab, sees the dump's rows of the outlets grouped with theirs in the DMS (by default
+ * the days since the previous dump, and every earlier row not yet marked or in Verigence, carried
+ * into each new dump -- 19 Nov 2026), searches by customer name, mobile or OTF, and marks the
  * bookings / deliveries the dealership intimated to them. A row already in Verigence needs no
  * mark; a mark stays with the booking in later dumps.
  */
@@ -87,9 +88,9 @@ export default function P2DmsIntimationsPage() {
   const dump = list.data?.dump;
   const counts = list.data?.counts;
   const canMark = Boolean(setup.data?.canMark);
+  // To check: the rows since the previous dump and the earlier ones nobody has marked yet.
   const views: [IntimationView, string][] = [
-    ['new', dump?.previousDumpDate ? `Since ${day(dump.previousDumpDate)}` : 'This dump'],
-    ['open', 'Earlier, not marked'],
+    ['new', 'To check'],
     ['month', 'Whole month'],
   ];
 
@@ -124,7 +125,7 @@ export default function P2DmsIntimationsPage() {
           </div>
           {list.data?.newStates && dump ? (
             <div className="p2du-tiles">
-              <div className="p2du-tile p2du-tile--bad"><span>Not marked</span><strong>{list.data.newStates.OPEN}</strong><small>in this dump's new rows</small></div>
+              <div className="p2du-tile p2du-tile--bad"><span>Not marked</span><strong>{list.data.newStates.OPEN}</strong><small>{counts?.open ? `${counts.open} carried from earlier dumps` : 'to check'}</small></div>
               <div className="p2du-tile p2du-tile--warn"><span>Marked intimated</span><strong>{list.data.newStates.INTIMATED}</strong></div>
               <div className="p2du-tile"><span>In Verigence</span><strong>{list.data.newStates.IN_VERIGENCE}</strong></div>
             </div>
@@ -154,6 +155,7 @@ export default function P2DmsIntimationsPage() {
                   <div className="dmsi-row__main">
                     <strong>{item.customerName ?? '—'}</strong>
                     <span className="p2w-muted">{day(item.eventDate)} · {item.location ?? '—'}{item.mobile ? ` · ${item.mobile}` : ''}</span>
+                    {item.carried && item.state === 'OPEN' ? <span className="p2du-tag p2du-tag--warn dmsi-carried">From an earlier dump</span> : null}
                     <span className="dmsi-row__ids">
                       {kind === 'BOOKING'
                         ? <>{item.otf ?? item.bookingNumber ?? '—'}{item.otf && item.bookingNumber ? ` · ${item.bookingNumber}` : ''}</>

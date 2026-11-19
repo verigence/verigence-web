@@ -46,6 +46,8 @@ export type IntimationItem = {
   journeyId: string | null;
   journeyReference: string | null;
   mark: { byName: string; atUtc: string; mine: boolean } | null;
+  /** An earlier row of the month not yet marked, carried into this dump (2026-11-19). */
+  carried?: boolean;
 };
 
 export type IntimationList = {

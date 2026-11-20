@@ -43,12 +43,13 @@ function Side({ title, side }: { title: string; side: DuplicateBookingSide }) {
 function MatchedOn({ pair }: { pair: DuplicateBookingPair }) {
   const fields = pair.matchedFields ?? [];
   if (!fields.length) return null;
+  const [first, second] = sideTitles(pair);
   return (
     <div className="j360-dup-evidence">
       <span className="j360-label">Matched on</span>
       <table className="p2w-table">
         <thead>
-          <tr><th>Field</th><th>Holds the booking</th><th>Believed duplicate</th></tr>
+          <tr><th>Field</th><th>{first}</th><th>{second}</th></tr>
         </thead>
         <tbody>
           {fields.map((field) => (
@@ -65,6 +66,20 @@ function MatchedOn({ pair }: { pair: DuplicateBookingPair }) {
       </table>
     </div>
   );
+}
+
+/** The same receipt on bookings of two different vehicles is not a duplicate
+ * booking (product owner 2026-11-20): neither booking is "believed duplicate";
+ * the Team Lead decides which booking the receipt pays for. */
+const isSharedReceipt = (pair: DuplicateBookingPair) => pair.matchBasis === 'SHARED_RECEIPT';
+
+function sideTitles(pair: DuplicateBookingPair): [string, string] {
+  return isSharedReceipt(pair) ? ['Booking', 'Other booking with the same receipt'] : ['Holds the booking', 'Believed duplicate'];
+}
+
+function pairChip(pair: DuplicateBookingPair): string {
+  const basis = pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match');
+  return isSharedReceipt(pair) ? `${basis} · Team Lead to decide` : `${basis} · ${matchLevelText(pair.matchConfidenceLabel)}`;
 }
 
 type DuplicatesTab = 'possible' | 'deleted';
@@ -180,13 +195,13 @@ export default function P2DuplicateBookingsPage() {
           <li key={pair.findingId} className="j360-card">
             <header className="j360-docs__head">
               <span className={`p2w-chip p2w-chip--${pair.severity === 'CRITICAL' ? 'danger' : pair.severity === 'LOW' ? 'neutral' : 'warning'}`}>
-                {pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match')}{` · ${matchLevelText(pair.matchConfidenceLabel)}`}
+                {pairChip(pair)}
               </span>
               <span className="p2w-muted">Raised {formatDateTime(pair.raisedAtUtc)} · {humanizeKey(pair.status)}</span>
             </header>
             <div className="j360-dup-pair">
-              <Side title="Holds the booking" side={pair.holder} />
-              <Side title="Believed duplicate" side={pair.duplicate} />
+              <Side title={sideTitles(pair)[0]} side={pair.holder} />
+              <Side title={sideTitles(pair)[1]} side={pair.duplicate} />
             </div>
             <MatchedOn pair={pair} />
           </li>

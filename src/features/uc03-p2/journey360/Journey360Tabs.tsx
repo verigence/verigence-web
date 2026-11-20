@@ -1083,7 +1083,39 @@ export function AuditTab({ data }: { data: P2SectionMap['audit'] }) {
 }
 
 // ── Duplicate booking banner ────────────────────────────────────────────────
-export function DuplicatesBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
+export function DuplicatesBanner({ pairs: all }: { pairs: P2DuplicatePair[] }) {
+  // The same receipt on a booking of another vehicle is not a duplicate
+  // booking (product owner 2026-11-20): its own notice, the Team Lead decides.
+  const shared = all.filter((pair) => pair.matchBasis === 'SHARED_RECEIPT');
+  const pairs = all.filter((pair) => pair.matchBasis !== 'SHARED_RECEIPT');
+  return (
+    <>
+      <SharedReceiptBanner pairs={shared} />
+      <DuplicateBookingBanner pairs={pairs} />
+    </>
+  );
+}
+
+function SharedReceiptBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
+  if (!pairs.length) return null;
+  return (
+    <section className="p2w-alert p2w-alert--review j360-dupes" role="status" aria-label="The same receipt is on another booking">
+      <strong>The same receipt is on another booking</strong>
+      <ul>
+        {pairs.map((pair) => (
+          <li key={pair.findingId}>
+            A receipt on this booking is also on the booking of a different vehicle
+            {' '}— {pair.otherJourney.customer_name ?? 'another customer'}{pair.otherJourney.outlet_name ? `, ${pair.otherJourney.outlet_name}` : ''}.
+            {' '}A receipt is issued once: the Team Lead decides which booking it pays for.{' '}
+            <Link className="p2w-link" to={`/p2/journeys/${pair.otherJourney.journey_id}/overview`}>Open the other booking</Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function DuplicateBookingBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
   if (!pairs.length) return null;
   return (
     <section className="p2w-alert p2w-alert--error j360-dupes" role="alert" aria-label="Possible duplicate booking">

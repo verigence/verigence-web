@@ -63,6 +63,8 @@ export type IntimationList = {
   dealerName?: string;
   view?: IntimationView;
   dump: { dumpId: string; dumpDate: string; previousDumpDate: string | null } | null;
+  /** The DMS report already generated from this dump, if any (2026-11-20). */
+  report?: { reportId: string; reportDate: string; generatedBy: string; generatedAtUtc: string } | null;
   counts: Record<IntimationView, number>;
   newStates?: Record<IntimationState, number>;
   items: IntimationItem[];

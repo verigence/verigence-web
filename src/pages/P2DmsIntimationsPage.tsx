@@ -20,6 +20,20 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
+function stamp(value: string): string {
+  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    .format(new Date(value));
+}
+
+/** The reports whose pop-up the PC has already seen in this browser session. */
+const SEEN_KEY = 'dmsi-report-notice-seen';
+function seenReports(): string[] {
+  try { return JSON.parse(sessionStorage.getItem(SEEN_KEY) ?? '[]') as string[]; } catch { return []; }
+}
+function markReportSeen(reportId: string): void {
+  try { sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seenReports(), reportId].slice(-50))); } catch { /* storage unavailable */ }
+}
+
 function day(value: string | null | undefined): string {
   if (!value) return '—';
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`));
@@ -32,6 +46,10 @@ function day(value: string | null | undefined): string {
  * into each new dump -- 19 Nov 2026), searches by customer name, mobile or OTF, and marks the
  * bookings / deliveries the dealership intimated to them. A row already in Verigence needs no
  * mark; a mark stays with the booking in later dumps.
+ *
+ * Once the DMS report has been generated from the dump, the screen says so in a note and a pop-up
+ * (product owner 20 Nov 2026): a change made now reaches the report only if the Reviewer / TL
+ * generates it again, or with the next dump.
  */
 export default function P2DmsIntimationsPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -45,6 +63,7 @@ export default function P2DmsIntimationsPage() {
   const [q, setQ] = useState('');
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<string[]>([]);
   const enabled = Boolean(tenantId && accessToken);
 
   useEffect(() => {
@@ -86,6 +105,14 @@ export default function P2DmsIntimationsPage() {
   };
 
   const dump = list.data?.dump;
+  const report = list.data?.report ?? null;
+  // The pop-up once per report in a session; the note stays on the screen.
+  const showNotice = Boolean(report && !dismissed.includes(report.reportId) && !seenReports().includes(report.reportId));
+  const closeNotice = () => {
+    if (!report) return;
+    markReportSeen(report.reportId);
+    setDismissed((ids) => [...ids, report.reportId]);
+  };
   const counts = list.data?.counts;
   const canMark = Boolean(setup.data?.canMark);
   // To check: the rows since the previous dump and the earlier ones nobody has marked yet.
@@ -123,6 +150,16 @@ export default function P2DmsIntimationsPage() {
               {dump ? `Dump of ${day(dump.dumpDate)}${dump.previousDumpDate ? ` · previous ${day(dump.previousDumpDate)}` : ''}` : list.isLoading ? '' : `No ${word} dump yet this month.`}
             </span>
           </div>
+          {report && dump ? (
+            <div className="p2w-alert p2w-alert--review dmsi-report-note" role="status">
+              <span>
+                <strong>The DMS report has already been generated</strong> from the {word} dump of {day(dump.dumpDate)}
+                {' '}(by {report.generatedBy}, {stamp(report.generatedAtUtc)}). If you make changes now, please let the
+                Reviewer / TL know so that they can re-generate the report, or wait for the next dump to be uploaded
+                to sync with Verigence.
+              </span>
+            </div>
+          ) : null}
           {list.data?.newStates && dump ? (
             <div className="p2du-tiles">
               <div className="p2du-tile p2du-tile--bad"><span>Not marked</span><strong>{list.data.newStates.OPEN}</strong><small>{counts?.open ? `${counts.open} carried from earlier dumps` : 'to check'}</small></div>
@@ -191,6 +228,21 @@ export default function P2DmsIntimationsPage() {
           </ul>
           {list.data?.truncated ? <p className="p2w-muted">The first 500 rows are shown; search to narrow.</p> : null}
         </SectionCard>
+      ) : null}
+      {report && dump && showNotice ? (
+        <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) closeNotice(); }}>
+          <div className="p2w-dialog" role="alertdialog" aria-modal="true" aria-labelledby="dmsi-report-title" aria-describedby="dmsi-report-text">
+            <h3 id="dmsi-report-title">Report has already been generated</h3>
+            <p id="dmsi-report-text">
+              The DMS report has been generated from the {word} dump of {day(dump.dumpDate)} by {report.generatedBy}
+              {' '}({stamp(report.generatedAtUtc)}). If you want to make changes, please let the Reviewer / TL know so
+              that they can re-generate the report, or wait for the next dump to be uploaded to sync with Verigence.
+            </p>
+            <div className="p2w-dialog__actions">
+              <button type="button" className="p2w-button p2w-button--primary" autoFocus onClick={closeNotice}>OK</button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

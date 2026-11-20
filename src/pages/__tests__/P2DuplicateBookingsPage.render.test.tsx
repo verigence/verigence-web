@@ -43,10 +43,22 @@ const deleted = {
   bookingReference: 'BK/0012',
 } as unknown as DeletedDuplicateBooking;
 
-function render(path: string): string {
+const side = (journeyId: string, customerName: string, productLabel: string) => ({
+  journeyId, journeyReference: journeyId, customerName, productLabel, dealerName: 'Aditya Motors',
+  outletName: 'Kendrapara', pcName: 'Radhakanta Das', bookingConfirmDate: null,
+});
+
+const pair = (matchBasis: string, matchBasisLabel: string) => ({
+  findingId: `f-${matchBasis}`, status: 'OPEN', severity: matchBasis === 'SHARED_RECEIPT' ? 'MEDIUM' : 'CRITICAL',
+  raisedAtUtc: '2026-11-16T03:15:00Z', matchBasis, matchBasisLabel, matchConfidenceLabel: 'HIGH',
+  holder: side('ADI-RD-261114-003', 'Samir Ray', 'SUPRO'), duplicate: side('ADI-RD-261031-012', 'DILLIP RAY', 'Scorpio'),
+  matchedFields: [{ field: 'receipt', label: matchBasisLabel, thisValue: 'AMCB308092627', otherValue: 'AMCB308092627', exact: true }],
+});
+
+function render(path: string, pairs: unknown[] = []): string {
   const client = new QueryClient();
   client.setQueryData(['p2-duplicates-deleted', 't1'], { generatedAtUtc: '', items: [deleted] });
-  client.setQueryData(['p2-duplicates', 't1', false], { generatedAtUtc: '', pairs: [] });
+  client.setQueryData(['p2-duplicates', 't1', false], { generatedAtUtc: '', pairs });
   const page = (node: ReactNode) => (
     <QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}>{node}</MemoryRouter></QueryClientProvider>
   );
@@ -71,5 +83,21 @@ describe('Duplicate bookings tabs', () => {
     }
     expect(html).toContain('href="/p2/journeys/j-old/overview"');
     expect(html).toContain('data-label="Aadhaar"');
+  });
+});
+
+describe('The same receipt on two vehicles (2026-11-20)', () => {
+  it('is not shown as a duplicate: neutral headings and the Team Lead decides', () => {
+    const html = render('/p2/duplicate-bookings', [pair('SHARED_RECEIPT', 'same receipt on two vehicles')]);
+    expect(html).toContain('same receipt on two vehicles · Team Lead to decide');
+    expect(html).toContain('Other booking with the same receipt');
+    expect(html).not.toContain('Believed duplicate');
+    expect(html).not.toContain('High probability');
+  });
+
+  it('keeps the duplicate wording for a duplicate booking', () => {
+    const html = render('/p2/duplicate-bookings', [pair('RECEIPT', 'same receipt number')]);
+    expect(html).toContain('Believed duplicate');
+    expect(html).toContain('Holds the booking');
   });
 });

@@ -62,7 +62,8 @@ export type IntimationList = {
   dealerId: string | null;
   dealerName?: string;
   view?: IntimationView;
-  dump: { dumpId: string; dumpDate: string; previousDumpDate: string | null } | null;
+  /** matchedAtUtc: when the dump was last matched with Verigence (what the states reflect). */
+  dump: { dumpId: string; dumpDate: string; previousDumpDate: string | null; matchedAtUtc?: string | null } | null;
   /** The DMS report already generated from this dump, if any (2026-11-20). */
   report?: { reportId: string; reportDate: string; generatedBy: string; generatedAtUtc: string } | null;
   counts: Record<IntimationView, number>;
@@ -122,9 +123,12 @@ export function getIntimationSetup(tenantId: string, accessToken?: string) {
   return auditCoreRequest<IntimationSetup>(`${base(tenantId)}/dms-intimations/setup`, { accessToken, cache: 'no-store' });
 }
 
-export function listIntimations(tenantId: string, params: { kind: DmsDumpKind; dealerId?: string; view: IntimationView; q?: string },
+/** refresh: match the dump with Verigence as it is now first ("Refresh from Verigence", on demand). */
+export function listIntimations(tenantId: string,
+  params: { kind: DmsDumpKind; dealerId?: string; view: IntimationView; q?: string; refresh?: boolean },
   accessToken?: string) {
   const query = new URLSearchParams({ kind: params.kind, view: params.view });
+  if (params.refresh) query.set('refresh', 'true');
   if (params.dealerId) query.set('dealerId', params.dealerId);
   if (params.q?.trim()) query.set('q', params.q.trim());
   return auditCoreRequest<IntimationList>(`${base(tenantId)}/dms-intimations?${query}`, { accessToken, cache: 'no-store' });

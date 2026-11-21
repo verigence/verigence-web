@@ -23,6 +23,7 @@ import {
   kindFromFileName,
   listDmsDumps,
   rematchDmsDump,
+  downloadModelDifferences,
   uploadDmsDump,
   type DmsDump,
   type DmsDumpKind,
@@ -66,7 +67,10 @@ export default function P2DataUploadsPage() {
   const [dealerId, setDealerId] = useState('');
   const [pending, setPending] = useState<Pending[]>([]);
   const [over, setOver] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(() => {
+    // The uploader's model-differs alert links here with ?dumpId= (2026-11-21).
+    try { return new URLSearchParams(window.location.search).get('dumpId'); } catch { return null; }
+  });
   const [outcome, setOutcome] = useState<DmsRowOutcome | ''>('MISSING');
   const [error, setError] = useState<string | null>(null);
   // Bank statements sit beside the DMS dumps (product owner 14 Nov 2026): ?type=bank links there.
@@ -163,6 +167,21 @@ export default function P2DataUploadsPage() {
   const generateDay = reportDay && dumpDays.includes(reportDay) ? reportDay : dumpDays[0] ?? '';
   // Reviewer and above generate it: those who may upload, and PM / Executive.
   const canGenerate = Boolean(setup.data);
+  // Sure matches with a different model, as Excel (product owner 21 Nov 2026).
+  const downloadModels = async (dump: { dumpId: string; dealerName: string | null; kind: DmsDumpKind; businessDate: string }) => {
+    setError(null);
+    try {
+      const blob = await downloadModelDifferences(tenantId!, dump.dumpId, accessToken);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Model-differs_${(dump.dealerName ?? 'dealer').replace(/\s+/g, '-')}_${dump.kind === 'BOOKING' ? 'Booking' : 'Delivery'}_${dump.businessDate}.xlsx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The list could not be downloaded.');
+    }
+  };
   const recheck = async (dumpId: string) => {
     setBusy(true);
     setError(null);
@@ -346,7 +365,10 @@ export default function P2DataUploadsPage() {
               <thead>
                 <tr>
                   <th>Dump date</th><th>Dealership</th><th>Type</th><th className="num">Rows</th><th className="num">Synced</th>
-                  <th className="num">Not in Verigence</th><th className="num">Delivery not uploaded</th><th>Uploaded</th><th>Status</th>
+                  <th className="num">Not in Verigence</th><th className="num">Delivery not uploaded</th>
+                  <th className="num" title="Matched on the booking no. / OTF or chassis, a different model in Verigence">Model differs</th>
+                  <th className="num" title="Dates taken from the DMS onto the journeys' papers">Dates from DMS</th>
+                  <th>Uploaded</th><th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -360,6 +382,8 @@ export default function P2DataUploadsPage() {
                     <td className="num">{d.matched}</td>
                     <td className="num">{d.missing ? <span className="p2du-tag p2du-tag--bad">{d.missing}</span> : 0}</td>
                     <td className="num">{d.kind === 'DELIVERY' ? (d.notInTool ? <span className="p2du-tag p2du-tag--warn">{d.notInTool}</span> : 0) : '—'}</td>
+                    <td className="num">{d.modelDiffers ? <span className="p2du-tag p2du-tag--warn">{d.modelDiffers}</span> : 0}</td>
+                    <td className="num">{d.datesFromDms ?? 0}</td>
                     <td><span title={d.fileName}>{d.uploadedBy}</span><br /><small className="p2w-muted">{when(d.uploadedAtUtc)}</small></td>
                     <td>{d.status === 'ACTIVE' ? <span className="p2du-tag p2du-tag--ok">Current</span> : <span className="p2du-tag">Replaced</span>}</td>
                   </tr>
@@ -377,6 +401,11 @@ export default function P2DataUploadsPage() {
                 <div className="p2w-muted">{detail.data.fileName}{detail.data.matchedAtUtc ? ` · checked ${when(detail.data.matchedAtUtc)}` : ''}</div>
               </div>
               <div className="p2du-toolbar__end">
+                {detail.data.modelDiffers ? (
+                  <button type="button" className="p2w-button p2w-button--secondary" onClick={() => void downloadModels(detail.data!)}>
+                    Model differs ({detail.data.modelDiffers}) · Download Excel
+                  </button>
+                ) : null}
                 {setup.data?.canUpload ? (
                   <button type="button" className="p2w-button p2w-button--secondary" disabled={busy} onClick={() => void recheck(detail.data!.dumpId)}>
                     Check again
@@ -411,11 +440,16 @@ export default function P2DataUploadsPage() {
                         <td>{r.customerName ?? '—'}</td>
                         <td>{r.mobile ?? '—'}</td>
                         <td>{detail.data!.kind === 'BOOKING' ? <>{r.bookingNumber ?? '—'}<br /><small className="p2w-muted">{r.otf}</small></> : r.chassis ?? '—'}</td>
-                        <td>{r.model ?? '—'}{r.variant ? <><br /><small className="p2w-muted">{r.variant}</small></> : null}</td>
+                        <td>{r.model ?? '—'}{r.variant ? <><br /><small className="p2w-muted">{r.variant}</small></> : null}
+                          {r.modelDiffers ? <><br /><span className="p2du-tag p2du-tag--warn" title="Matched on the booking no. / OTF or chassis">Verigence: {r.journeyModel ?? 'not identified'}</span></> : null}</td>
                         <td>{r.outletName ?? r.outletLabel ?? '—'}</td>
                         <td>{r.consultant ?? '—'}</td>
                         <td><span className={`p2du-tag p2du-tag--${DMS_OUTCOME_LABELS[r.outcome].tone}`}>{DMS_OUTCOME_LABELS[r.outcome].label}</span>
-                          {r.stage && detail.data!.kind === 'BOOKING' ? <><br /><small className="p2w-muted">DMS: {r.stage}</small></> : null}</td>
+                          {r.stage && detail.data!.kind === 'BOOKING' ? <><br /><small className="p2w-muted">DMS: {r.stage}</small></> : null}
+                          {r.dateSync?.status === 'APPLIED'
+                            ? <><br /><small className="p2w-muted" title={r.dateSync.was?.length ? `Was ${r.dateSync.was.join(', ')}` : undefined}>
+                                {r.dateSync.field === 'delivery_date' ? 'Delivery' : 'Booking'} date taken from DMS</small></>
+                            : null}</td>
                         {detail.data!.kind === 'DELIVERY' ? (
                           <td title={r.dealTypeBasis ?? undefined}>
                             {r.outcome === 'NOT_IN_DMS' ? '—' : <span className={`p2du-tag p2du-tag--${dealTypeLabel(r.dealType).tone}`}>{dealTypeLabel(r.dealType).label}</span>}

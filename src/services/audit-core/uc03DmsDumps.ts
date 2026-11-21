@@ -39,6 +39,19 @@ export type DmsDump = {
   uploadedBy: string;
   uploadedAtUtc: string;
   matchedAtUtc: string | null;
+  /** Matched on the booking no. / OTF or chassis, a different model in Verigence (2026-11-21). */
+  modelDiffers?: number;
+  /** Dates taken from the DMS onto the journeys' papers on such matches (2026-11-21). */
+  datesFromDms?: number;
+};
+
+/** What the DMS date did on a sure match (2026-11-21). */
+export type DmsDateSync = {
+  status: 'APPLIED' | 'NOT_APPLIED' | 'NO_DOCUMENT' | 'TO_APPLY' | string;
+  field?: string;
+  dms?: string;
+  was?: string[];
+  reason?: string;
 };
 
 export type DmsDumpRow = {
@@ -68,6 +81,9 @@ export type DmsDumpRow = {
   /** Delivery dump rows: the Deal Type rule's Inscope / Outscope (2026-11-19); null = pending. */
   dealType?: string | null;
   dealTypeBasis?: string | null;
+  journeyModel?: string | null;
+  modelDiffers?: boolean | null;
+  dateSync?: DmsDateSync | null;
 };
 
 /** The Deal Type in words, for a delivery dump row (2026-11-19). */
@@ -100,6 +116,7 @@ export const DMS_MATCH_BASIS: Record<string, string> = {
   MOBILE: 'Mobile',
   NAME_DATE: 'Name + booking date',
   NAME_MODEL: 'Name + model',
+  NAME_NEAR_ID: 'Name + mobile / booking no. a digit or two off',
 };
 
 export const DATA_UPLOADS_PATH = '/p2/data-uploads';
@@ -135,6 +152,13 @@ export function uploadDmsDump(tenantId: string, input: { file: File; dealerId: s
 export function rematchDmsDump(tenantId: string, dumpId: string, accessToken?: string) {
   return auditCoreRequest<DmsDump>(`${base(tenantId)}/dms-dumps/${encodeURIComponent(dumpId)}/rematch`,
     { method: 'POST', accessToken });
+}
+
+/** The sure matches of one upload whose model differs, as Excel (2026-11-21). */
+export async function downloadModelDifferences(tenantId: string, dumpId: string, accessToken?: string): Promise<Blob> {
+  const response = await auditCoreRawRequest(`${base(tenantId)}/dms-dumps/${encodeURIComponent(dumpId)}/model-differences/file`,
+    { accessToken });
+  return response.blob();
 }
 
 /** The variance workbook of one day's uploads (``day``, YYYY-MM-DD), one upload, or the month. */

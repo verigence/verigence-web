@@ -19,7 +19,9 @@ import { auditCoreRequest } from './client';
  * Reviewer deletes the duplicate booking (``uploadsBlocked``).
  */
 // DMS_DUMP_UPLOADED (2026-11-18): a dealership's DMS dump is in; its PCs mark their intimations.
-export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS' | 'DUPLICATE_SAME_DEALERSHIP' | 'DMS_DUMP_UPLOADED';
+// DMS_MODEL_DIFFERS (2026-11-21): to the person who uploaded a dump, its sure matches naming a different model.
+export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS' | 'DUPLICATE_SAME_DEALERSHIP' | 'DMS_DUMP_UPLOADED'
+  | 'DMS_MODEL_DIFFERS';
 export type SameFileOutcome =
   | 'DELETED'
   | 'KEPT_NOT_INDIVIDUAL'
@@ -70,6 +72,9 @@ export type TenantAlert = {
     /** DMS_DUMP_UPLOADED: the screen to open (Booking / Delivery Intimation). */
     link?: string;
     dumpKind?: 'BOOKING' | 'DELIVERY' | string;
+    /** DMS_MODEL_DIFFERS: the upload and how many rows. */
+    dumpId?: string;
+    count?: number;
   };
   publishedAtUtc: string;
   expiresAtUtc: string;

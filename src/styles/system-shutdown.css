@@ -1,0 +1,22 @@
+/* System shutdown (product owner, 21 Nov 2026): Super Admin and Executive shut Verigence down and start it. */
+.system-shutdown__now { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 16px; border: 1px solid #dfe5ec; border-left-width: 4px; border-radius: 4px; background: #fff; }
+.system-shutdown__now--running { border-left-color: #198038; }
+.system-shutdown__now--shut { border-left-color: #b28600; background: #fcf8ec; }
+.system-shutdown__now strong { display: block; margin-top: 8px; font-size: 18px; font-weight: 600; color: #161616; }
+.system-shutdown__now p { margin: 6px 0 0; max-width: 64ch; font-size: 13px; line-height: 1.5; color: #525252; }
+.system-shutdown__actions { display: flex; flex-shrink: 0; gap: 8px; }
+.system-shutdown__hours { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.system-shutdown__hours label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #525252; }
+.system-shutdown__hours input[type='time'] { min-height: 40px; padding: 0 12px; border: 1px solid #8d8d8d; border-radius: 0; background: #f4f4f4; font: inherit; font-size: 14px; color: #161616; }
+.system-shutdown__hours input[type='time']:focus { outline: 2px solid #0f62fe; outline-offset: -2px; }
+.system-shutdown__what { margin: 0 0 16px; padding-left: 18px; font-size: 13px; line-height: 1.6; color: #393939; }
+.system-shutdown__what li + li { margin-top: 6px; }
+.system-shutdown__last { margin: 0; font-size: 13px; color: #393939; }
+
+/* Phones only: the status and its button stack, and the hours take the width. */
+@media (max-width: 760px) {
+  .system-shutdown__now { flex-direction: column; gap: 16px; }
+  .system-shutdown__actions, .system-shutdown__actions button { width: 100%; }
+  .system-shutdown__hours { flex-direction: column; align-items: stretch; }
+  .system-shutdown__hours button { width: 100%; }
+}

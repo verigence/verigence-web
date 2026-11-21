@@ -100,6 +100,7 @@ export const DMS_MATCH_BASIS: Record<string, string> = {
   MOBILE: 'Mobile',
   NAME_DATE: 'Name + booking date',
   NAME_MODEL: 'Name + model',
+  NAME_NEAR_ID: 'Name + mobile / booking no. a digit or two off',
 };
 
 export const DATA_UPLOADS_PATH = '/p2/data-uploads';

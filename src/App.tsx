@@ -65,6 +65,7 @@ const AdminAnnouncementsPage = lazy(() => import('./pages/AdminAnnouncementsPage
 const AdminDeviceDiagnosticsPage = lazy(() => import('./pages/AdminDeviceDiagnosticsPage'));
 const AdminLoginActivityPage = lazy(() => import('./pages/AdminLoginActivityPage'));
 const AdminNightControlPage = lazy(() => import('./pages/AdminNightControlPage'));
+const AdminSystemShutdownPage = lazy(() => import('./pages/AdminSystemShutdownPage'));
 const HrHousekeepingPage = lazy(() => import('./pages/HrHousekeepingPage'));
 const HrMySalaryPage = lazy(() => import('./pages/hr/HrMySalaryPage'));
 const HrPayrollPage = lazy(() => import('./pages/hr/HrPayrollPage'));
@@ -204,6 +205,14 @@ function PrivatePage({ children }: { children: ReactNode }) {
 function SuperAdminPage({ children }: { children: ReactNode }) {
   const role = useSessionStore((state) => state.role);
   if (role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
+  return <PrivatePage>{children}</PrivatePage>;
+}
+
+/** System shutdown: Super Admin and Executive only (product owner, 21 Nov 2026). Security checks it again. */
+function ShutdownSwitchPage({ children }: { children: ReactNode }) {
+  const role = useSessionStore((state) => state.role);
+  const executive = useProjectContextStore((state) => state.projects.some((project) => String(project.operatingRole ?? '').toUpperCase() === 'EXECUTIVE'));
+  if (role !== 'SUPER_ADMIN' && !executive) return <Navigate to="/dashboard" replace />;
   return <PrivatePage>{children}</PrivatePage>;
 }
 
@@ -447,6 +456,7 @@ export default function App() {
               <Route path="/admin/diagnostics" element={<SuperAdminPage><AdminDeviceDiagnosticsPage /></SuperAdminPage>} />
               <Route path="/admin/login-activity" element={<SuperAdminPage><AdminLoginActivityPage /></SuperAdminPage>} />
               <Route path="/admin/night-control" element={<SuperAdminPage><AdminNightControlPage /></SuperAdminPage>} />
+              <Route path="/admin/system-shutdown" element={<ShutdownSwitchPage><AdminSystemShutdownPage /></ShutdownSwitchPage>} />
               <Route path="/admin/hr-housekeeping" element={<SuperAdminPage><HrHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />

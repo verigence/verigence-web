@@ -104,6 +104,11 @@ export default function TenantAlertBanner() {
                   </Link>
                 </p>
               ) : null}
+              {alert.kind === 'DMS_MODEL_DIFFERS' && alert.payload?.link ? (
+                <p className="tenant-alert__links">
+                  <Link to={alert.payload.link} onClick={() => dismiss([alert.alertId])}>Open the list in Data uploads</Link>
+                </p>
+              ) : null}
               {journeys.length ? (
                 <p className="tenant-alert__links">
                   {journeys.map((j) => (

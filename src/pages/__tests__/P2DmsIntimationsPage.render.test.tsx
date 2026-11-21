@@ -33,7 +33,7 @@ function render(report: IntimationList['report']): string {
   client.setQueryData(['dms-intimation-setup', 't1'], setup);
   client.setQueryData(['dms-intimations', 't1', 'BOOKING', 'd1', 'new', ''], {
     kind: 'BOOKING', dealerId: 'd1', dealerName: 'Utkal', view: 'new',
-    dump: { dumpId: 'u1', dumpDate: '2026-11-20', previousDumpDate: '2026-11-19' }, report,
+    dump: { dumpId: 'u1', dumpDate: '2026-11-20', previousDumpDate: '2026-11-19', matchedAtUtc: '2026-11-20T08:25:06Z' }, report,
     counts: { new: 0, open: 0, month: 0 }, newStates: { IN_VERIGENCE: 0, INTIMATED: 0, OPEN: 0 }, items: [],
   } satisfies IntimationList);
   return renderToString(
@@ -52,6 +52,12 @@ describe('Booking Intimation once the DMS report is generated (20 Nov 2026)', ()
     expect(html).toContain('let the Reviewer / TL know so that they can re-generate the report');
     expect(html).toContain('wait for the next dump to be uploaded to sync with Verigence');
     expect(html).toContain('Priyanka Baral');
+  });
+
+  it('offers Refresh from Verigence and says when the dump was last checked (21 Nov 2026)', () => {
+    const html = render(null);
+    expect(html).toContain('Refresh from Verigence');
+    expect(html).toContain('Checked with Verigence 20 Nov');
   });
 
   it('says nothing before a report is generated', () => {

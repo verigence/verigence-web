@@ -64,6 +64,8 @@ export default function P2DmsIntimationsPage() {
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
   const enabled = Boolean(tenantId && accessToken);
 
   useEffect(() => {
@@ -104,8 +106,28 @@ export default function P2DmsIntimationsPage() {
     }
   };
 
+  // "Refresh from Verigence": the dump matched again with Verigence as it is now, on demand only
+  // (product owner 21 Nov 2026: not on every opening, which would load the system needlessly).
+  const refresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const fresh = await listIntimations(tenantId!, { kind, dealerId: dealerId || undefined, view, q, refresh: true }, accessToken);
+      queryClient.setQueryData(listKey, fresh);
+      await queryClient.invalidateQueries({ queryKey: ['dms-intimations', tenantId, kind, dealerId],
+        predicate: (query) => JSON.stringify(query.queryKey) !== JSON.stringify(listKey) });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not refresh from Verigence.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const dump = list.data?.dump;
   const report = list.data?.report ?? null;
+  // Once the report is generated, a refresh asks first (product owner 21 Nov 2026): changes now reach
+  // the report only if the Reviewer / TL generates it again.
+  const askRefresh = () => { if (report) setConfirmRefresh(true); else void refresh(); };
   // The pop-up once per report in a session; the note stays on the screen.
   const showNotice = Boolean(report && !dismissed.includes(report.reportId) && !seenReports().includes(report.reportId));
   const closeNotice = () => {
@@ -149,6 +171,17 @@ export default function P2DmsIntimationsPage() {
             <span className="p2w-muted">
               {dump ? `Dump of ${day(dump.dumpDate)}${dump.previousDumpDate ? ` · previous ${day(dump.previousDumpDate)}` : ''}` : list.isLoading ? '' : `No ${word} dump yet this month.`}
             </span>
+            {dump ? (
+              <span className="dmsi-refresh">
+                <span className="p2w-muted">
+                  {dump.matchedAtUtc ? `Checked with Verigence ${stamp(dump.matchedAtUtc)}` : 'Not yet checked with Verigence'}
+                </span>
+                <button type="button" className="p2w-button" onClick={askRefresh} disabled={refreshing || list.isFetching}
+                  title="Check the dump again against the bookings and deliveries uploaded in Verigence">
+                  {refreshing ? 'Checking with Verigence…' : 'Refresh from Verigence'}
+                </button>
+              </span>
+            ) : null}
           </div>
           {report && dump ? (
             <div className="p2w-alert p2w-alert--review dmsi-report-note" role="status">
@@ -228,6 +261,23 @@ export default function P2DmsIntimationsPage() {
           </ul>
           {list.data?.truncated ? <p className="p2w-muted">The first 500 rows are shown; search to narrow.</p> : null}
         </SectionCard>
+      ) : null}
+      {report && dump && confirmRefresh ? (
+        <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirmRefresh(false); }}>
+          <div className="p2w-dialog" role="alertdialog" aria-modal="true" aria-labelledby="dmsi-refresh-title" aria-describedby="dmsi-refresh-text">
+            <h3 id="dmsi-refresh-title">Report has been generated</h3>
+            <p id="dmsi-refresh-text">
+              The DMS report has already been generated from the {word} dump of {day(dump.dumpDate)} by {report.generatedBy}
+              {' '}({stamp(report.generatedAtUtc)}). If any changes are to be made, please let the Reviewer / TL know so
+              that they can re-generate the report.
+            </p>
+            <div className="p2w-dialog__actions">
+              <button type="button" className="p2w-button" onClick={() => setConfirmRefresh(false)}>Cancel</button>
+              <button type="button" className="p2w-button p2w-button--primary" autoFocus
+                onClick={() => { setConfirmRefresh(false); void refresh(); }}>Continue</button>
+            </div>
+          </div>
+        </div>
       ) : null}
       {report && dump && showNotice ? (
         <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) closeNotice(); }}>

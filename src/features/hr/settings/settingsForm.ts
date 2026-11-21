@@ -1,4 +1,5 @@
 import type {
+  CautionDayInput,
   Holiday,
   HolidayAppliesTo,
   HolidayDayPart,
@@ -154,8 +155,10 @@ export type HolidayLength = 'FULL' | 'HALF';
 export type HolidayHalf = 'MORNING' | 'AFTERNOON';
 
 export interface HolidayDraft {
-  /** HOLIDAY, or WORKING_DAY: a Sunday made a working day (7 Nov 2026). */
+  /** HOLIDAY, WORKING_DAY (a Sunday made a working day, 7 Nov 2026) or CAUTION (21 Nov 2026). */
   kind: HolidayKind;
+  /** CAUTION only: the Sunday to work in its place (YYYY-MM-DD). */
+  workingSunday: string;
   date: string;
   name: string;
   status: HolidayStatus;
@@ -166,10 +169,24 @@ export interface HolidayDraft {
   scope: string[];
 }
 
-export type HolidayErrors = Partial<Record<'date' | 'name' | 'scope', string>>;
+export type HolidayErrors = Partial<Record<'date' | 'name' | 'scope' | 'workingSunday', string>>;
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
 
 export function emptyHolidayDraft(year: number): HolidayDraft {
-  return { kind: 'HOLIDAY', date: `${year}-01-01`, name: '', status: 'TENTATIVE', length: 'FULL', half: 'AFTERNOON', appliesTo: 'ALL', scope: [] };
+  return {
+    kind: 'HOLIDAY',
+    workingSunday: '',
+    date: `${year}-01-01`,
+    name: '',
+    status: 'TENTATIVE',
+    length: 'FULL',
+    half: 'AFTERNOON',
+    appliesTo: 'ALL',
+    scope: [],
+  };
 }
 
 /** One key per choice: a whole project (no outlet) or one outlet of it. */
@@ -183,7 +200,42 @@ function parseScopeKey(key: string): { tenantId: string; outletId: string | null
 }
 
 export function draftDayPart(draft: Pick<HolidayDraft, 'length' | 'half'> & { kind?: HolidayKind }): HolidayDayPart {
-  return draft.kind === 'WORKING_DAY' || draft.length === 'FULL' ? 'FULL_DAY' : draft.half;
+  return draft.kind !== 'HOLIDAY' || draft.length === 'FULL' ? 'FULL_DAY' : draft.half;
+}
+
+/** The first Sunday after a date (YYYY-MM-DD), or '' for a date that is not valid. */
+export function nextSundayIso(iso: string): string {
+  if (!isIsoDate(iso)) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d));
+  day.setUTCDate(day.getUTCDate() + (7 - day.getUTCDay() || 7));
+  return day.toISOString().slice(0, 10);
+}
+
+/**
+ * The draft as a caution day (21 Nov 2026): a whole day, declared at once, for chosen projects
+ * unless set otherwise, with the coming Sunday to be worked in its place.
+ */
+export function asCautionDay(draft: HolidayDraft): HolidayDraft {
+  return {
+    ...draft,
+    kind: 'CAUTION',
+    length: 'FULL',
+    status: 'DECLARED',
+    name: draft.name === 'Working Sunday' ? '' : draft.name,
+    appliesTo: draft.kind === 'HOLIDAY' && draft.appliesTo === 'ALL' ? 'SELECTED' : draft.appliesTo,
+    workingSunday: nextSundayIso(draft.date),
+  };
+}
+
+export function cautionInput(draft: HolidayDraft): CautionDayInput {
+  return {
+    date: draft.date,
+    reason: draft.name.trim(),
+    workingSunday: draft.workingSunday || undefined,
+    appliesTo: draft.appliesTo,
+    scope: draft.appliesTo === 'ALL' ? [] : draft.scope.map(parseScopeKey),
+  };
 }
 
 /** The draft as a working Sunday: a whole day, declared, for chosen projects unless set otherwise. */
@@ -208,6 +260,7 @@ export function draftFromHoliday(h: Holiday): HolidayDraft {
   const dayPart = h.dayPart ?? 'FULL_DAY';
   return {
     kind: h.kind ?? 'HOLIDAY',
+    workingSunday: '',
     date: h.date,
     name: h.name,
     status: h.status,
@@ -268,8 +321,10 @@ export function describeAppliesTo(h: Pick<Holiday, 'appliesTo' | 'scope'>): stri
 }
 
 /** "Half day, afternoon off, for the whole company, declared." */
-export function holidaySummary(h: Pick<Holiday, 'dayPart' | 'appliesTo' | 'scope' | 'status' | 'kind'>): string {
+export function holidaySummary(h: Pick<Holiday, 'dayPart' | 'appliesTo' | 'scope' | 'status' | 'kind' | 'cautionId'>): string {
   const who = (h.appliesTo ?? 'ALL') === 'ALL' ? 'the whole company' : describeAppliesTo(h);
+  if (h.kind === 'CAUTION') return `Caution day (voluntary leave), for ${who}. The Sunday in its place is a working day for them.`;
+  if (h.kind === 'WORKING_DAY' && h.cautionId) return `Working Sunday in place of a caution day, for ${who}.`;
   if (h.kind === 'WORKING_DAY') return `Working Sunday, for ${who}.`;
   return `${HOLIDAY_DAY_PART_LABEL[h.dayPart ?? 'FULL_DAY']}, for ${who}, ${HOLIDAY_STATUS_LABEL[h.status].toLowerCase()}.`;
 }
@@ -308,10 +363,20 @@ export function validateHoliday(draft: HolidayDraft): HolidayErrors {
     if (year < 2020 || year > 2100) errors.date = 'Use a year from 2020 to 2100.';
   }
   const name = draft.name.trim();
-  if (name.length < 2) errors.name = 'Enter the holiday name (at least 2 characters).';
+  if (name.length < 2) {
+    errors.name = draft.kind === 'CAUTION' ? 'Enter the reason (at least 2 characters).' : 'Enter the holiday name (at least 2 characters).';
+  }
   else if (name.length > 120) errors.name = 'Use up to 120 characters.';
   if (!errors.date && draft.kind === 'WORKING_DAY' && !isSundayIso(draft.date)) {
     errors.date = 'A working Sunday must be on a Sunday.';
+  }
+  if (!errors.date && draft.kind === 'CAUTION') {
+    if (isSundayIso(draft.date)) errors.date = 'A caution day cannot be a Sunday: Sunday is already off.';
+    else if (!isIsoDate(draft.workingSunday) || !isSundayIso(draft.workingSunday) || draft.workingSunday <= draft.date) {
+      errors.workingSunday = 'Choose a Sunday after the caution day.';
+    } else if (daysBetween(draft.date, draft.workingSunday) > 31) {
+      errors.workingSunday = 'Choose a Sunday within a month of the caution day.';
+    }
   }
   if (draft.appliesTo === 'SELECTED' && draft.scope.length === 0) {
     errors.scope = 'Choose at least one project or outlet, or make it for the whole company.';

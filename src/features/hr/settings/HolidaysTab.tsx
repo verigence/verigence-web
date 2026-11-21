@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import SectionCard from '../../../components/SectionCard';
 import { hrErrorMessage, HrHttpError } from '../../../services/hr/client';
 import {
+  addCautionDay,
   addHoliday,
   changeHoliday,
   getHolidayScopeOptions,
@@ -13,10 +14,13 @@ import {
   type HolidayScopeProject,
 } from '../../../services/hr/hrSettings';
 import Field from '../Field';
+import { todayIst } from '../attendance/attendanceFormat';
 import {
   HOLIDAY_DAY_PART_LABEL,
   HOLIDAY_STATUS_LABEL,
+  asCautionDay,
   asWorkingSunday,
+  cautionInput,
   describeAppliesTo,
   describeDraftScope,
   draftDayPart,
@@ -25,6 +29,7 @@ import {
   emptyHolidayDraft,
   formatHolidayDate,
   holidaySummary,
+  nextSundayIso,
   outletLabel,
   projectLabel,
   scopeKey,
@@ -169,6 +174,8 @@ function ScopePicker({
 }
 
 function DayPartTag({ h }: { h: Holiday }) {
+  if (h.kind === 'CAUTION') return <span className="hr-tag hr-tag--magenta">Caution day</span>;
+  if (h.kind === 'WORKING_DAY' && h.cautionId) return <span className="hr-tag hr-tag--teal">Working Sunday, in place of a caution day</span>;
   if (h.kind === 'WORKING_DAY') return <span className="hr-tag hr-tag--teal">Working Sunday</span>;
   const part = h.dayPart ?? 'FULL_DAY';
   return <span className={`hr-tag ${part === 'FULL_DAY' ? 'hr-tag--cool-gray' : 'hr-tag--blue'}`}>{HOLIDAY_DAY_PART_LABEL[part]}</span>;
@@ -204,14 +211,25 @@ export default function HolidaysTab({ accessToken }: Props) {
   const projects = useMemo(() => options.data?.projects ?? [], [options.data]);
 
   const save = useMutation({
-    mutationFn: (d: HolidayDraft) => (editingId ? changeHoliday(accessToken, editingId, draftToInput(d)) : addHoliday(accessToken, draftToInput(d))),
-    onSuccess: (saved) => {
+    mutationFn: async (d: HolidayDraft): Promise<{ saved: Holiday; sunday?: Holiday }> => {
+      if (d.kind === 'CAUTION') {
+        const made = await addCautionDay(accessToken, cautionInput(d));
+        return { saved: made.caution, sunday: made.workingSunday };
+      }
+      const saved = editingId ? await changeHoliday(accessToken, editingId, draftToInput(d)) : await addHoliday(accessToken, draftToInput(d));
+      return { saved };
+    },
+    onSuccess: ({ saved, sunday }) => {
       void queryClient.invalidateQueries({ queryKey: settingsKeys.holidaysAll });
       setYear(Number(saved.date.slice(0, 4)));
       setNotice({
         kind: 'success',
-        title: `${saved.name} on ${formatHolidayDate(saved.date)} saved.`,
-        text: holidaySummary(saved),
+        title: sunday
+          ? `Caution day on ${formatHolidayDate(saved.date)} declared, with ${formatHolidayDate(sunday.date)} as the working Sunday.`
+          : `${saved.name} on ${formatHolidayDate(saved.date)} saved.`,
+        text: sunday
+          ? 'Whoever checks in on the caution day keeps that Sunday off in lieu; everyone else has the day off and works the Sunday. Leave already applied for the day is given back.'
+          : holidaySummary(saved),
       });
       setDraft(null);
       setEditingId(null);
@@ -226,6 +244,8 @@ export default function HolidaysTab({ accessToken }: Props) {
           const field = p.field.split('.').pop();
           if (field === 'name') next.name = p.message;
           else if (field === 'holiday_date' || field === 'date') next.date = p.message;
+          else if (field === 'reason') next.name = p.message;
+          else if (field === 'working_sunday' || field === 'workingSunday') next.workingSunday = p.message;
         }
         setErrors(next);
       }
@@ -264,6 +284,12 @@ export default function HolidaysTab({ accessToken }: Props) {
     setEditingId(null);
     reset();
   };
+  const startCaution = () => {
+    const today = todayIst();
+    setDraft(asCautionDay({ ...emptyHolidayDraft(Number(today.slice(0, 4))), date: today }));
+    setEditingId(null);
+    reset();
+  };
   const startEdit = (h: Holiday) => {
     setDraft(draftFromHoliday(h));
     setEditingId(h.holidayId);
@@ -291,7 +317,7 @@ export default function HolidaysTab({ accessToken }: Props) {
     setErrors((current) => {
       const next = { ...current };
       for (const key of Object.keys(patch) as Array<keyof HolidayDraft>) {
-        if (key === 'date' || key === 'name') delete next[key];
+        if (key === 'date' || key === 'name' || key === 'workingSunday') delete next[key];
         if (key === 'scope' || key === 'appliesTo') delete next.scope;
       }
       return next;
@@ -315,7 +341,8 @@ export default function HolidaysTab({ accessToken }: Props) {
           text:
             'Only declared holidays count as non-working days: in leave days, in the working days payroll counts, and on the attendance screen. ' +
             'A half-day holiday counts as half a working day; the other half must be worked. A holiday for selected projects or outlets applies only to the people working there on that date. ' +
-            'Every Sunday is non-working unless it is made a working Sunday for some projects or outlets (or everyone).',
+            'Every Sunday is non-working unless it is made a working Sunday for some projects or outlets (or everyone). ' +
+            'A caution day (bad weather, a cyclone, a strike) is voluntary leave with a working Sunday in its place: whoever works the caution day keeps that Sunday off in lieu.',
         }}
       />
 
@@ -326,12 +353,15 @@ export default function HolidaysTab({ accessToken }: Props) {
         <button type="button" className="uc01-admin-button uc01-admin-button--primary hrs-touch hrs-yearbar__add" onClick={startAdd} disabled={busy}>
           Add holiday
         </button>
+        <button type="button" className="uc01-admin-button hrs-touch" onClick={startCaution} disabled={busy}>
+          Declare caution day
+        </button>
       </div>
 
       {notice && <InlineNotification notice={notice} />}
 
       {draft && (
-        <SectionCard title={editingId ? 'Edit holiday' : 'Add holiday'}>
+        <SectionCard title={editingId ? 'Edit holiday' : draft.kind === 'CAUTION' ? 'Declare caution day' : 'Add holiday'}>
           <form
             className="hr-form hrs-holiday-form"
             noValidate
@@ -341,7 +371,13 @@ export default function HolidaysTab({ accessToken }: Props) {
             }}
           >
             <div className="hr-form-grid">
-              <Field label="Date" htmlFor="holiday-date" required error={errors.date} hint={draft.kind === 'WORKING_DAY' ? 'A Sunday.' : undefined}>
+              <Field
+                label={draft.kind === 'CAUTION' ? 'Caution day' : 'Date'}
+                htmlFor="holiday-date"
+                required
+                error={errors.date}
+                hint={draft.kind === 'WORKING_DAY' ? 'A Sunday.' : draft.kind === 'CAUTION' ? 'Not a Sunday. Can be today or a day already past.' : undefined}
+              >
                 <input
                   id="holiday-date"
                   type="date"
@@ -350,10 +386,35 @@ export default function HolidaysTab({ accessToken }: Props) {
                   value={draft.date}
                   disabled={busy}
                   aria-invalid={errors.date ? true : undefined}
-                  onChange={(event) => change({ date: event.target.value })}
+                  onChange={(event) =>
+                    change(
+                      draft.kind === 'CAUTION'
+                        ? { date: event.target.value, workingSunday: nextSundayIso(event.target.value) }
+                        : { date: event.target.value },
+                    )
+                  }
                 />
               </Field>
-              <Field label="Holiday name" htmlFor="holiday-name" required error={errors.name}>
+              {draft.kind === 'CAUTION' && (
+                <Field label="Working Sunday in its place" htmlFor="holiday-working-sunday" required error={errors.workingSunday} hint="The coming Sunday unless you choose another.">
+                  <input
+                    id="holiday-working-sunday"
+                    type="date"
+                    value={draft.workingSunday}
+                    min={draft.date}
+                    disabled={busy}
+                    aria-invalid={errors.workingSunday ? true : undefined}
+                    onChange={(event) => change({ workingSunday: event.target.value })}
+                  />
+                </Field>
+              )}
+              <Field
+                label={draft.kind === 'CAUTION' ? 'Reason' : 'Holiday name'}
+                htmlFor="holiday-name"
+                required
+                error={errors.name}
+                hint={draft.kind === 'CAUTION' ? 'Shown to everyone on the caution day and on the working Sunday, e.g. "Cyclone warning".' : undefined}
+              >
                 <input
                   id="holiday-name"
                   type="text"
@@ -375,11 +436,22 @@ export default function HolidaysTab({ accessToken }: Props) {
               onChange={(kind) =>
                 kind === 'WORKING_DAY'
                   ? setDraft((current) => (current ? asWorkingSunday(current) : current))
-                  : change({ kind, name: draft.name === 'Working Sunday' ? '' : draft.name })
+                  : kind === 'CAUTION'
+                    ? setDraft((current) => (current ? asCautionDay(current) : current))
+                    : change({ kind, name: draft.name === 'Working Sunday' ? '' : draft.name })
               }
               options={[
                 { value: 'HOLIDAY', title: 'Holiday', text: 'A day, or half a day, off.' },
                 { value: 'WORKING_DAY', title: 'Working Sunday', text: 'This Sunday is a normal working day for the people chosen.' },
+                ...(editingId
+                  ? []
+                  : [
+                      {
+                        value: 'CAUTION' as const,
+                        title: 'Caution day',
+                        text: 'Bad weather, a cyclone or a strike: voluntary leave, and a Sunday is worked in its place. Whoever works the caution day keeps that Sunday off.',
+                      },
+                    ]),
               ]}
             />
             {draft.kind === 'HOLIDAY' && (
@@ -452,14 +524,18 @@ export default function HolidaysTab({ accessToken }: Props) {
             {!options.data && errors.scope && <span className="hr-field__error" role="alert">{errors.scope}</span>}
 
             <p className="hrs-intro" aria-live="polite">
-              {draft.kind === 'WORKING_DAY'
+              {draft.kind === 'CAUTION'
+                ? `Caution day${draft.appliesTo === 'ALL' ? ' for the whole company' : ' for the selected projects and outlets'}: those who stay home have the day off and work ${draft.workingSunday ? formatHolidayDate(draft.workingSunday) : 'the coming Sunday'}; those who come in work an ordinary day and keep that Sunday off in lieu. Nobody needs to apply for leave.`
+                : draft.kind === 'WORKING_DAY'
                 ? `Working Sunday${draft.appliesTo === 'ALL' ? ' for the whole company' : ' for the selected projects and outlets'}: an ordinary working day for them (check-in rules, leave, payroll and earned leave as on any working day). Everyone else keeps the Sunday off.`
                 : `${HOLIDAY_DAY_PART_LABEL[dayPart]}${draft.appliesTo === 'ALL' ? ' for the whole company' : ' for the selected projects and outlets'}${draft.status === 'DECLARED' ? ', declared.' : ', tentative.'}`}
             </p>
 
             {formError && <InlineNotification notice={{ kind: 'error', title: formError }} />}
             <div className="hr-actions hr-actions--form">
-              <button type="submit" className="uc01-admin-button uc01-admin-button--primary" disabled={busy}>{save.isPending ? 'Saving…' : 'Save holiday'}</button>
+              <button type="submit" className="uc01-admin-button uc01-admin-button--primary" disabled={busy}>
+                {save.isPending ? 'Saving…' : draft.kind === 'CAUTION' ? 'Declare caution day' : 'Save holiday'}
+              </button>
               <button type="button" className="uc01-admin-button" disabled={busy} onClick={cancel}>Cancel</button>
             </div>
           </form>
@@ -505,7 +581,7 @@ export default function HolidaysTab({ accessToken }: Props) {
                     <td data-label="Actions">
                       {confirmId === h.holidayId ? (
                         <div className="hrs-confirm" role="group" aria-label={`Remove ${h.name}`}>
-                          <span>Remove this holiday?</span>
+                          <span>{h.cautionId ? 'Remove this caution day and its working Sunday?' : 'Remove this holiday?'}</span>
                           <div className="hr-row-actions">
                             <button type="button" className="uc01-admin-button uc01-admin-button--danger-primary hrs-touch" disabled={busy} onClick={() => remove.mutate(h)}>
                               {remove.isPending ? 'Removing…' : 'Remove'}
@@ -515,7 +591,9 @@ export default function HolidaysTab({ accessToken }: Props) {
                         </div>
                       ) : (
                         <div className="hr-row-actions">
-                          <button type="button" className="uc01-admin-button hrs-touch" disabled={busy} onClick={() => startEdit(h)} aria-label={`Edit ${h.name}`}>Edit</button>
+                          {!h.cautionId && (
+                            <button type="button" className="uc01-admin-button hrs-touch" disabled={busy} onClick={() => startEdit(h)} aria-label={`Edit ${h.name}`}>Edit</button>
+                          )}
                           <button
                             type="button"
                             className="uc01-admin-button uc01-admin-button--danger hrs-touch"

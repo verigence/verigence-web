@@ -33,8 +33,12 @@ export type HolidayStatus = 'TENTATIVE' | 'DECLARED';
 export type HolidayDayPart = 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
 /** ALL: the whole company. SELECTED: the projects and outlets in `scope`. */
 export type HolidayAppliesTo = 'ALL' | 'SELECTED';
-/** HOLIDAY, or WORKING_DAY: a Sunday made a working day (a whole declared Sunday; 7 Nov 2026). */
-export type HolidayKind = 'HOLIDAY' | 'WORKING_DAY';
+/**
+ * HOLIDAY, WORKING_DAY (a Sunday made a working day, a whole declared Sunday; 7 Nov 2026) or CAUTION
+ * (a caution day: bad weather, a cyclone or a strike, with voluntary leave and a working Sunday in its
+ * place; 21 Nov 2026).
+ */
+export type HolidayKind = 'HOLIDAY' | 'WORKING_DAY' | 'CAUTION';
 
 /** A whole project (outletId null) or one outlet of a project. Names come from the work context. */
 export interface HolidayScope {
@@ -56,6 +60,11 @@ export interface Holiday {
   appliesTo: HolidayAppliesTo;
   /** Absent from services before the working-Sunday change: treat as HOLIDAY. */
   kind?: HolidayKind;
+  /**
+   * A caution day's own id, or on its working Sunday the caution day it stands in for. The two are
+   * removed together and are not edited one at a time. Absent from services before 21 Nov 2026.
+   */
+  cautionId?: string | null;
   /** Filled for HR only; empty for everyone else and for company-wide holidays. */
   scope: HolidayScope[];
   updatedAt?: string | null;
@@ -64,6 +73,15 @@ export interface Holiday {
 export interface HolidayList {
   items: Holiday[];
   note?: string;
+}
+
+/** A caution day and the Sunday to work in its place (the coming Sunday when not given). */
+export interface CautionDayInput {
+  date: string;
+  reason: string;
+  workingSunday?: string;
+  appliesTo: HolidayAppliesTo;
+  scope: Array<{ tenantId: string; outletId: string | null }>;
 }
 
 export interface HolidayInput {
@@ -136,6 +154,14 @@ export const changeHoliday = (token: string, holidayId: string, input: HolidayIn
   hrRequest<Holiday>(`${base}/holidays/entries/${encodeURIComponent(holidayId)}`, {
     accessToken: token,
     method: 'PUT',
+    body: { ...input },
+  });
+
+/** HR or SuperAdmin: declares a caution day together with its working Sunday (21 Nov 2026). */
+export const addCautionDay = (token: string, input: CautionDayInput) =>
+  hrRequest<{ caution: Holiday; workingSunday: Holiday }>(`${base}/holidays/caution`, {
+    accessToken: token,
+    method: 'POST',
     body: { ...input },
   });
 

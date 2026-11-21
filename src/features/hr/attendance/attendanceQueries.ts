@@ -15,6 +15,8 @@ export const attendanceKeys = {
   employeeCalendar: (id: string, month: string) => ['hr', 'attendance', 'calendar', id, month] as const,
   teamDaily: (date: string, project: string) => ['hr', 'attendance', 'team-daily', date, project] as const,
   teamWeekly: (date: string, project: string) => ['hr', 'attendance', 'team-weekly', date, project] as const,
+  teamSummary: (month: string, project: string) => ['hr', 'attendance', 'summary', 'team', month, project] as const,
+  mySummary: (month: string) => ['hr', 'attendance', 'summary', 'me', month] as const,
   corrections: ['hr', 'attendance', 'corrections', 'me'] as const,
 };
 

@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
 import { ATTENDANCE_PERMISSION } from '../../services/hr/attendance';
-import { getEmployeeCalendar, getTeamDaily, getTeamWeekly } from '../../services/hr/attendanceCalendar';
+import { getEmployeeCalendar, getTeamDaily, getTeamSummary, getTeamWeekly } from '../../services/hr/attendanceCalendar';
 import { hrErrorMessage } from '../../services/hr/client';
 import { useSessionStore } from '../../store/sessionStore';
 import CalendarSection from '../../features/hr/attendance/CalendarSection';
@@ -15,6 +15,9 @@ import { formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/atten
 import {
   calendarShort,
   calendarTag,
+  cautionShort,
+  cautionTag,
+  cautionText,
   dayHolidaysText,
   formatHoursShort,
   formatMinutes,
@@ -25,18 +28,22 @@ import {
 import { useHrAccess, useLeadsAProject } from '../../features/hr/hrQueries';
 import { TODAY_REFRESH_MS } from '../../features/hr/attendance/teamArrival';
 import TeamDayView, { SharedTag } from '../../features/hr/attendance/TeamDayView';
+import TeamMonthSummary from '../../features/hr/attendance/TeamMonthSummary';
 import '../../styles/hr-attendance.css';
 import '../../styles/hr-calendar.css';
 import '../../styles/hr-team-day.css';
 
-type View = 'daily' | 'weekly';
+type View = 'daily' | 'weekly' | 'monthly';
+
+const VIEW_LABELS: Record<View, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Month summary' };
 
 interface Person { employeeId: string; employeeName: string; employeeCode: string }
 
 /**
  * Team Lead, Project Manager and Executive: the attendance of everyone on the projects they lead,
- * project by project, as a day or a week, with hours per day and the week's total. HR and the CEO
- * see every project. People who work on more than one project are tagged Shared under each one.
+ * project by project, as a day or a week, with hours per day and the week's total, or as a month
+ * summary per person (present, absent, leave applied and taken, caution days, hours; 21 Nov 2026).
+ * HR, the CEO and SuperAdmin see every project. People who work on more than one project are tagged Shared under each one.
  * Tap a person for their month calendar.
  */
 export default function HrTeamOverviewPage() {
@@ -52,6 +59,7 @@ export default function HrTeamOverviewPage() {
   const [search, setSearch] = useState('');
   const [person, setPerson] = useState<Person | null>(null);
   const [month, setMonth] = useState(() => todayIst().slice(0, 7));
+  const [summaryMonth, setSummaryMonth] = useState(() => todayIst().slice(0, 7));
   const today = todayIst();
 
   const daily = useQuery({
@@ -70,6 +78,13 @@ export default function HrTeamOverviewPage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const summary = useQuery({
+    queryKey: attendanceKeys.teamSummary(summaryMonth, project),
+    queryFn: () => getTeamSummary(accessToken!, summaryMonth, project || undefined),
+    enabled: Boolean(accessToken) && allowed && view === 'monthly',
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   const calendar = useQuery({
     queryKey: attendanceKeys.employeeCalendar(person?.employeeId ?? '', month),
     queryFn: () => getEmployeeCalendar(accessToken!, person!.employeeId, month),
@@ -83,9 +98,13 @@ export default function HrTeamOverviewPage() {
     !needle || p.employeeName.toLowerCase().includes(needle) || p.employeeCode.toLowerCase().includes(needle);
 
   const projectChoices = useMemo(() => {
-    const source = view === 'daily' ? daily.data?.projects : weekly.data?.projects;
+    const source = view === 'daily' ? daily.data?.projects : view === 'weekly' ? weekly.data?.projects : summary.data?.projects;
     return (source ?? []).filter((p) => p.projectCode).map((p) => ({ code: p.projectCode as string, name: p.projectName || p.projectCode }));
-  }, [view, daily.data, weekly.data]);
+  }, [view, daily.data, weekly.data, summary.data]);
+  const summaryRows = (summary.data?.people ?? []).filter(matches).map((r) => ({
+    ...r,
+    projectsText: r.projects.map((p) => p.projectName || p.projectCode).join(', '),
+  }));
 
   if (access.loading) return <div className="uc01-admin-state">Loading…</div>;
   if (!allowed) {
@@ -116,7 +135,7 @@ export default function HrTeamOverviewPage() {
   }
 
   const step = view === 'daily' ? 1 : 7;
-  const active = view === 'daily' ? daily : weekly;
+  const active = view === 'daily' ? daily : view === 'weekly' ? weekly : summary;
   const open = (p: Person) => { setMonth(date.slice(0, 7)); setPerson(p); };
 
   return (
@@ -124,12 +143,12 @@ export default function HrTeamOverviewPage() {
       <PageHeader
         eyebrow="HR"
         title="Team attendance overview"
-        description="Everyone on your projects, project by project: the day or the week, hours per day and the week's total. Shared employees work on more than one project."
+        description="Everyone on your projects, project by project: the day or the week, hours per day and the week's total, or the month summary per person. Shared employees work on more than one project."
       />
 
       <div className="hr-ov-toolbar">
         <div className="hr-switcher" role="tablist" aria-label="View">
-          {(['daily', 'weekly'] as const).map((v) => (
+          {(['daily', 'weekly', 'monthly'] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -138,11 +157,12 @@ export default function HrTeamOverviewPage() {
               className={`hr-switcher__item${view === v ? ' is-active' : ''}`}
               onClick={() => setView(v)}
             >
-              {v === 'daily' ? 'Daily' : 'Weekly'}
+              {VIEW_LABELS[v]}
             </button>
           ))}
         </div>
-        <div className="hr-ov-date">
+        {view === 'monthly' && <MonthSwitcher month={summaryMonth} onChange={setSummaryMonth} />}
+        {view !== 'monthly' && <div className="hr-ov-date">
           <button type="button" className="uc01-admin-button" aria-label={view === 'daily' ? 'Previous day' : 'Previous week'} onClick={() => setDate(shiftDays(date, -step))}>‹</button>
           <label>
             <span className="hr-visually-hidden">Date</span>
@@ -155,7 +175,7 @@ export default function HrTeamOverviewPage() {
             disabled={shiftDays(date, step) > today && (view === 'daily' || mondayOf(shiftDays(date, step)) > today)}
             onClick={() => setDate(shiftDays(date, step) > today ? today : shiftDays(date, step))}
           >›</button>
-        </div>
+        </div>}
         <label className="hr-ov-field">
           <span>Project</span>
           <select value={project} onChange={(e) => setProject(e.target.value)}>
@@ -190,6 +210,14 @@ export default function HrTeamOverviewPage() {
           </p>
           <TeamDayView data={daily.data} today={today} updatedAt={daily.dataUpdatedAt} needle={needle} onOpen={open} />
         </>
+      )}
+
+      {view === 'monthly' && summary.data && (
+        <TeamMonthSummary
+          data={summary.data}
+          rows={summaryRows}
+          onOpen={(r) => { setMonth(summaryMonth); setPerson(r); }}
+        />
       )}
 
       {view === 'weekly' && weekly.data && (
@@ -239,6 +267,9 @@ export default function HrTeamOverviewPage() {
                           {p.days.map((c) => (
                             <td key={c.date} data-label={weekdayHeader(c.date).weekday} className={`hr-ov-cell hr-ov-cell--${calendarTag[c.status]}`} title={c.label || undefined}>
                               {calendarShort[c.status] && <span className={`hr-tag hr-tag--${calendarTag[c.status]}`}>{calendarShort[c.status]}</span>}
+                              {c.caution && (
+                                <span className={`hr-tag hr-tag--${cautionTag[c.caution.status]}`} title={cautionText(c.caution)}>{cautionShort[c.caution.status]}</span>
+                              )}
                               {(c.minutes > 0 || c.runningMinutes) && (
                                 <small>{c.minutes ? formatHoursShort(c.minutes) : `${formatHoursShort(c.runningMinutes ?? 0)}…`}</small>
                               )}

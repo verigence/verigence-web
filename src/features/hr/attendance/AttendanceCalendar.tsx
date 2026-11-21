@@ -1,6 +1,16 @@
 import type { AttendanceCalendar as CalendarData, CalendarDay } from '../../../services/hr/attendanceCalendar';
 import { formatTimeIst } from './attendanceFormat';
-import { calendarShort, calendarTag, dayLabel, formatHoursShort, formatMinutes, halfDayHolidayText } from './calendarFormat';
+import {
+  calendarShort,
+  calendarTag,
+  cautionShort,
+  cautionTag,
+  cautionText,
+  dayLabel,
+  formatHoursShort,
+  formatMinutes,
+  halfDayHolidayText,
+} from './calendarFormat';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -44,7 +54,7 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
                 role="gridcell"
                 className={classes}
                 aria-selected={day.date === selected}
-                aria-label={`${day.date}${words ? `, ${words}` : ''}${day.halfDayHoliday ? `, ${halfDayHolidayText(day.halfDayHoliday)}` : ''}${day.workingSunday ? `, working Sunday: ${day.workingSunday.name}` : ''}${day.minutes ? `, ${formatMinutes(day.minutes)}` : ''}`}
+                aria-label={`${day.date}${words ? `, ${words}` : ''}${day.halfDayHoliday ? `, ${halfDayHolidayText(day.halfDayHoliday)}` : ''}${day.caution ? `, ${cautionText(day.caution)}` : day.workingSunday ? `, working Sunday: ${day.workingSunday.name}` : ''}${day.minutes ? `, ${formatMinutes(day.minutes)}` : ''}`}
                 onClick={() => onSelect(day)}
               >
                 <span className="hr-cal__date">{Number(day.date.slice(8, 10))}</span>
@@ -57,7 +67,12 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
                     {formatTimeIst(day.checkInAt)}{day.checkOutAt ? ` – ${formatTimeIst(day.checkOutAt)}` : ''}
                   </span>
                 )}
-                {day.workingSunday && day.inMonth !== false && (
+                {day.caution && day.inMonth !== false && (
+                  <span className={`hr-tag hr-tag--${cautionTag[day.caution.status]} hr-cal__tag`} title={cautionText(day.caution)}>
+                    {cautionShort[day.caution.status]}
+                  </span>
+                )}
+                {day.workingSunday && !day.caution && day.inMonth !== false && (
                   <span className="hr-tag hr-tag--outline hr-cal__tag" title={day.workingSunday.name}>Working Sunday</span>
                 )}
                 {day.halfDayHoliday && day.inMonth !== false && (

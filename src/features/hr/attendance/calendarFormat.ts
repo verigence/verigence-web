@@ -1,6 +1,6 @@
 import type { HalfDayHoliday } from '../../../services/hr/attendance';
 import type { DayHolidayInfo } from '../../../services/hr/attendanceReports';
-import type { CalendarDay, CalendarStatus, CorrectionStatus } from '../../../services/hr/attendanceCalendar';
+import type { CalendarDay, CalendarStatus, CautionInfo, CorrectionStatus } from '../../../services/hr/attendanceCalendar';
 
 /**
  * Words and Carbon tag colours for the attendance calendar and the team views.
@@ -222,4 +222,39 @@ export function dayHolidaysText(holidays: DayHolidayInfo[] | undefined, dayKind:
   return shown
     .map((h) => `${h.name} (${h.kind === 'WORKING_DAY' ? 'working Sunday' : PART_WORDS[h.dayPart]}, ${h.appliesTo === 'ALL' ? 'whole company' : h.scope.join(', ') || 'selected projects'})`)
     .join(' · ');
+}
+
+/** Short tag for a caution day or its Sunday on a calendar or weekly cell (21 Nov 2026). */
+export const cautionShort: Record<CautionInfo['status'], string> = {
+  OFF: 'Caution, off',
+  WORKED: 'Caution, worked',
+  IN_LIEU: 'Off in lieu',
+  SUNDAY_WORK: 'Working Sunday',
+};
+
+/** Carbon tag colour: magenta for the caution day itself, teal for its Sunday. */
+export const cautionTag: Record<CautionInfo['status'], TagType> = {
+  OFF: 'magenta',
+  WORKED: 'magenta',
+  IN_LIEU: 'teal',
+  SUNDAY_WORK: 'teal',
+};
+
+function shortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+/** What a caution day or its Sunday means for this person, in a sentence. */
+export function cautionText(c: CautionInfo): string {
+  switch (c.status) {
+    case 'OFF':
+      return `Caution day: ${c.reason}. Voluntary leave, no leave needed; the Sunday in its place is a working day.`;
+    case 'WORKED':
+      return `Caution day: ${c.reason}. Worked, so the Sunday in its place stays off in lieu.`;
+    case 'IN_LIEU':
+      return `Off in lieu of the caution day worked on ${shortDate(c.cautionDate)} (${c.reason}). No leave needed.`;
+    case 'SUNDAY_WORK':
+      return `Working Sunday in place of the caution day ${shortDate(c.cautionDate)}: ${c.reason}. A normal working day.`;
+  }
 }

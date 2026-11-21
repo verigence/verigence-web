@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CalendarDay } from '../../../../services/hr/attendanceCalendar';
 import {
   absentAfterFor,
+  cautionText,
   canRequestCorrection,
   correctionAskFor,
   dayHolidaysText,
@@ -151,5 +152,15 @@ describe('working Sundays in the day views', () => {
     expect(dayHolidaysText([{ name: 'Stock audit', dayPart: 'FULL_DAY', appliesTo: 'SELECTED', kind: 'WORKING_DAY', scope: ['Alpha'] }], 'WORKING')).toBe(
       'Stock audit (working Sunday, Alpha)',
     );
+  });
+});
+
+describe('caution day words (21 Nov 2026)', () => {
+  it('says what the day means for the person', () => {
+    const c = { reason: 'Cyclone warning', cautionDate: '2026-11-20' };
+    expect(cautionText({ ...c, status: 'OFF' })).toMatch(/Voluntary leave, no leave needed/);
+    expect(cautionText({ ...c, status: 'WORKED' })).toMatch(/stays off in lieu/);
+    expect(cautionText({ ...c, status: 'IN_LIEU' })).toMatch(/Off in lieu of the caution day worked on 20 Nov/);
+    expect(cautionText({ ...c, status: 'SUNDAY_WORK' })).toMatch(/in place of the caution day 20 Nov/);
   });
 });

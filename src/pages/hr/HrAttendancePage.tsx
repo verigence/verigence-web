@@ -21,7 +21,8 @@ import CalendarSection from '../../features/hr/attendance/CalendarSection';
 import CorrectionDialog from '../../features/hr/attendance/CorrectionDialog';
 import type { CorrectionAsk } from '../../features/hr/attendance/calendarFormat';
 import MyCorrections from '../../features/hr/attendance/MyCorrections';
-import { getMyCalendar } from '../../services/hr/attendanceCalendar';
+import { getMyCalendar, getMySummary } from '../../services/hr/attendanceCalendar';
+import MyMonthSummary from '../../features/hr/attendance/MyMonthSummary';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
 import MonthSwitcher from '../../features/hr/attendance/MonthSwitcher';
 import TodayCard from '../../features/hr/attendance/TodayCard';
@@ -121,6 +122,13 @@ export default function HrAttendancePage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const summary = useQuery({
+    queryKey: attendanceKeys.mySummary(month),
+    queryFn: () => getMySummary(accessToken!, month),
+    enabled: Boolean(accessToken) && access.isEmployee,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   const history = useQuery({
     queryKey: attendanceKeys.mine(month),
     queryFn: () => getMyAttendance(accessToken!, month),
@@ -216,6 +224,7 @@ export default function HrAttendancePage() {
         description="Each day's status and hours, with the total for every week. Tap a day for details or to ask for a correction."
         action={<MonthSwitcher month={month} onChange={setMonth} />}
       >
+        <MyMonthSummary query={summary} />
         <CalendarSection query={calendar} onRequestCorrection={setCorrecting} />
       </SectionCard>
 

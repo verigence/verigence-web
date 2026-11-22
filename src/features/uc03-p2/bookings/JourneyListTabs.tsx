@@ -106,6 +106,9 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
     const asked = (params.get('severity') ?? '').toUpperCase();
     return asked === 'HIGH' || asked === 'MEDIUM' || asked === 'LOW' || asked === 'NONE' ? asked : '';
   });
+  // Not in DMS (product owner 2026-11-22): the bookings the latest DMS report lists as in
+  // Verigence but not in the DMS, each with the reason.
+  const [notInDms, setNotInDms] = useState(() => params.get('notInDms') === '1');
   const currentMonth = useMemo(() => istMonth(), []);
   const [month, setMonth] = useState(() => {
     const asked = params.get('month');
@@ -138,6 +141,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
     pcActorId,
     kind,
     severity,
+    ...(notInDms ? { notInDms: true } : {}),
     ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
     ...(dates ? { dateFrom: dates.from, dateTo: dates.to } : {}),
   };
@@ -183,7 +187,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const hasNext = list.data?.nextOffset != null;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
-  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dates || dealerId || outletId || pcActorId || kind || severity);
+  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dates || dealerId || outletId || pcActorId || kind || severity || notInDms);
   // The Dealership filter and panel only when the Project has more than one Dealership.
   const dealers = overview.data?.byDealer ?? [];
   const manyDealers = supervisor && dealers.length > 1;
@@ -203,7 +207,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
 
   const clear = () => {
     setSearch(''); setDraft(''); setMonth(calendarMonth ? currentMonth : ''); setDates(null); setDealerId(''); setOutletId('');
-    setPcActorId(''); setKind(''); setSeverity('');
+    setPcActorId(''); setKind(''); setSeverity(''); setNotInDms(false);
   };
   const chooseDealer = (key: string) => {
     setDealerId(key);
@@ -403,6 +407,15 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
             <option value="NONE">None</option>
           </select>
         </label>
+        {/* Not in DMS (product owner 2026-11-22: "a switch not in dms"). */}
+        <span className="p2w-jtabs__switch">
+          <button type="button" role="switch" aria-checked={notInDms} id="p2w-not-in-dms"
+            className={`p2w-switch${notInDms ? ' is-on' : ''}`} onClick={() => setNotInDms((on) => !on)}
+            title="Bookings the latest DMS report lists as in Verigence but not in the DMS">
+            <span className="p2w-switch__track"><span className="p2w-switch__thumb" /></span>
+          </button>
+          <label htmlFor="p2w-not-in-dms">Not in DMS</label>
+        </span>
         {supervisor ? (
           <label className="p2w-jtabs__select">
             <span>Sort</span>

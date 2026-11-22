@@ -1108,6 +1108,57 @@
   color: #4b616a;
 }
 
+/* Not in DMS switch (2026-11-22): a Carbon toggle, small. */
+.p2w-jtabs__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4b616a;
+}
+
+.p2w-jtabs__switch label { cursor: pointer; }
+
+.p2w-switch {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.p2w-switch__track {
+  position: relative;
+  width: 32px;
+  height: 16px;
+  border-radius: 8px;
+  background: #8d8d8d;
+  transition: background 0.11s;
+}
+
+.p2w-switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.11s;
+}
+
+.p2w-switch.is-on .p2w-switch__track { background: #24a148; }
+.p2w-switch.is-on .p2w-switch__thumb { transform: translateX(16px); }
+.p2w-switch:focus-visible .p2w-switch__track { outline: 2px solid #0f62fe; outline-offset: 1px; }
+
+.p2w-jrow__dms {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .p2w-jtabs__select select {
   min-height: 36px;
   padding: 4px 8px;

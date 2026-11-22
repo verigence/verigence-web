@@ -81,6 +81,12 @@ export type P2JourneyListItem = {
   /** Observation severity (2026-11-18): a person's over the system's; null for none. */
   observation_severity?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   observation_severity_set_by_person?: boolean;
+  /** Not in DMS (2026-11-22): the latest DMS report lists the booking as in Verigence but not in
+   * the DMS, with the cross-check's reason; null when it does not. */
+  not_in_dms_code?: string | null;
+  not_in_dms_reason?: string | null;
+  not_in_dms_detail?: string | null;
+  not_in_dms_report_date?: string | null;
   /** The PC who started the journey, as their app named them. */
   pc_name?: string | null;
   /** The outlet's own id (code), for the TL's columns. */
@@ -115,6 +121,8 @@ export type P2JourneyFilters = {
   kind?: P2JourneyKind | '';
   /** Observation severity (2026-11-18): HIGH / MEDIUM / LOW, or NONE (no severity); empty for all. */
   severity?: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' | '';
+  /** Only bookings the latest DMS report lists as in Verigence but not in the DMS (2026-11-22). */
+  notInDms?: boolean;
   outletId?: string;
   pcActorId?: string;
   /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
@@ -712,6 +720,7 @@ export function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams 
   if (filters.dealerId) params.set('dealer_id', filters.dealerId);
   if (filters.kind) params.set('kind', filters.kind);
   if (filters.severity) params.set('severity', filters.severity);
+  if (filters.notInDms) params.set('not_in_dms', 'true');
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
   if (filters.dateFrom && filters.dateTo) { params.set('from', filters.dateFrom); params.set('to', filters.dateTo); }

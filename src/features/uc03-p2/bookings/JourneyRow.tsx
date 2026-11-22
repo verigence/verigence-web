@@ -227,6 +227,14 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
         <JourneyClosedBadge closure={item.reviewerClosure} closed={item.closed} />
+        {item.not_in_dms_reason ? (
+          <span className="p2w-jrow__dms">
+            <span className="p2w-chip p2w-chip--danger">Not in DMS</span>
+            <span className="p2w-muted" title={[item.not_in_dms_detail,
+              item.not_in_dms_report_date ? `As per the DMS report of ${fullDate(item.not_in_dms_report_date)}` : null,
+            ].filter(Boolean).join(' ')}>{item.not_in_dms_reason}</span>
+          </span>
+        ) : null}
         {item.customer_type ? (
           <span className="p2w-muted">
             {[DEAL_TYPE_TEXT[item.deal_type ?? ''] ?? 'Deal type pending VIN', CUSTOMER_TYPE_TEXT[item.customer_type] ?? item.customer_type,

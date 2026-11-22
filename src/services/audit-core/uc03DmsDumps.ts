@@ -209,7 +209,7 @@ export function kindFromFileName(name: string): DmsDumpKind | undefined {
 export type DmsOutletFigures = Partial<Record<
   | 'bookingDms' | 'bookingSynced' | 'bookingNotInVerigence' | 'bookingCancelled'
   | 'deliveryDump' | 'deliverySynced' | 'deliveryNotUploaded' | 'deliveryNotInVerigence'
-  | 'bookingInVerigence' | 'bookingDatedByUpload' | 'deliveryInVerigence' | 'deliveryDatedWithoutGatePass'
+  | 'bookingInVerigence' | 'bookingDatedByReceipt' | 'bookingDateNotRead' | 'deliveryInVerigence' | 'deliveryDatedWithoutGatePass'
   | 'deliveryNotInDms' | 'inscope' | 'outscope' | 'otherDealType'
   | 'dealTypePending' | 'gateRegister' | 'notIntimated' | 'pendingWithPc' | 'registersMissed' | 'countsPending'
   | 'bookingGap' | 'deliveryGap', number>>;

@@ -63,10 +63,10 @@ export default function P2DmsReportsPage() {
     if (id) next.set('report', id); else next.delete('report');
     setParams(next, { replace: true });
   };
-  const download = async (id: string, date: string) => {
+  const download = async (id: string, date: string, format: 'xlsx' | 'pdf' = 'xlsx') => {
     setError(null);
     try {
-      save(await downloadGeneratedDmsReport(tenantId!, id, accessToken), `DMS-Report_${date}.xlsx`);
+      save(await downloadGeneratedDmsReport(tenantId!, id, accessToken, format), `DMS-Reconciliation-Report_${date}.${format}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The report could not be downloaded.');
     }
@@ -97,6 +97,9 @@ export default function P2DmsReportsPage() {
           <div className="p2du-toolbar">
             <button type="button" className="p2w-button p2w-button--primary" onClick={() => void download(report.data!.reportId, report.data!.date)}>
               Download Excel
+            </button>
+            <button type="button" className="p2w-button" onClick={() => void download(report.data!.reportId, report.data!.date, 'pdf')}>
+              Download PDF
             </button>
             <button type="button" className="p2w-link" onClick={() => choose(null)}>Close</button>
           </div>

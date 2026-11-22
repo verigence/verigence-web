@@ -1168,6 +1168,8 @@ export type P2DealRow = {
   notTaken?: boolean;
   /** Charged on the NDC / cost sheet and on no other document (2026-11-11): a comment, never a task. */
   statementOnly?: boolean;
+  /** The line's rows written FREE on the NDC (2026-11-22), as one sentence; also in the system remarks. */
+  ndcNote?: string | null;
   /** Accessories bought beyond the NDC / cost sheet (2026-11-12): what the customer ledger posts over
    * the NDC's charge. In the amount to be received, in no line, standard or variance of the deal. */
   addOn?: Money;
@@ -1569,6 +1571,8 @@ export type P2AuditRow = {
   difference: string | null; conclusion: P2AuditConclusion; impact: 'CUSTOMER' | 'COMPANY' | null;
   reason: string | null; rule: string | null; documents: { document: string | null; amount: string | null }[];
   eligibility?: string | null; taken?: boolean | null;
+  /** The line's rows written FREE on the NDC (2026-11-22). */
+  note?: string | null;
 };
 export type P2AuditCheck = { conclusion: P2AuditConclusion; rule: string; reason: string | null };
 export type P2AuditSummary = {

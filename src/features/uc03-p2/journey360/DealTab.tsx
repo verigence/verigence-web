@@ -456,6 +456,7 @@ function DiscountRow({ row, journeyId, tenantId, accessToken, open, onToggle }: 
             <span>{row.label}</span>
             {row.scheme?.name ? <small className="p2w-muted">{row.scheme.name}{row.scheme.version ? ` · v${row.scheme.version}` : ''}</small> : null}
             {row.ledgerPosted ? <small className="p2w-muted">{`Posted in the customer ledger ${money(row.ledgerPosted)}: off the amount to be received`}</small> : null}
+            {row.ndcNote ? <small className="p2w-muted">{row.ndcNote}</small> : null}
             <Flags flags={row.flags} />
           </button>
         </th>

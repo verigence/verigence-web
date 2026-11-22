@@ -305,6 +305,7 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             {row.addOn ? <small className="p2w-muted">Accessories add-on {money(row.addOn)}: posted in the customer ledger beyond the NDC / cost sheet, added to the amount to be received</small> : null}
             {row.notTaken && !row.addOn ? <small className="p2w-muted">{row.invoiced ? 'Invoiced, but not charged on the NDC / cost sheet: not in the standard' : 'Not taken: price master shown for reference, not in the standard'}</small> : null}
             {row.statementOnly ? <small className="p2w-muted">On the NDC / cost sheet only, not on an invoice</small> : null}
+            {row.ndcNote ? <small className="p2w-muted">{row.ndcNote}</small> : null}
             {row.scrappageConcession ? (
               <small className="p2w-muted">
                 {`Price master ${money(row.scrappageConcession.masterStandard)} less the scrappage concession ${money(row.scrappageConcession.concession)} (${row.scrappageConcession.source})`}

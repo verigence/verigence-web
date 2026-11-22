@@ -104,7 +104,7 @@ function RowTable({ rows, caption, entitledLabel, billedLabel, rules, product = 
         <tbody>
           {rows.map((row) => (
             <tr key={`${row.section}-${row.key}`} className={['EXCEPTION', 'UNSUPPORTED'].includes(row.conclusion) ? 'is-flagged' : ''}>
-              <th scope="row">{row.label}{row.category && !product ? <small className="p2w-muted">{row.category}</small> : null}</th>
+              <th scope="row">{row.label}{row.category && !product ? <small className="p2w-muted">{row.category}</small> : null}{row.note ? <small className="p2w-muted">{row.note}</small> : null}</th>
               {product ? <td data-label="Taken">{row.taken === true ? 'Yes' : row.taken === false ? 'No' : '—'}</td> : null}
               <td className="is-num" data-label={entitledLabel}>{money(row.entitled)}</td>
               <td className="is-num" data-label="Booked">{money(row.booked)}</td>

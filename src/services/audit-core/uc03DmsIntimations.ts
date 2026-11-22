@@ -167,8 +167,12 @@ export function getDmsReport(tenantId: string, reportId: string, accessToken?: s
   return auditCoreRequest<DmsReport>(`${base(tenantId)}/dms-reports/${encodeURIComponent(reportId)}`, { accessToken });
 }
 
-export async function downloadGeneratedDmsReport(tenantId: string, reportId: string, accessToken?: string): Promise<Blob> {
-  const response = await auditCoreRawRequest(`${base(tenantId)}/dms-reports/${encodeURIComponent(reportId)}/file`, { accessToken });
+/** The generated report as one styled document: Excel (default) or PDF (2026-11-22). */
+export async function downloadGeneratedDmsReport(
+  tenantId: string, reportId: string, accessToken?: string, format: 'xlsx' | 'pdf' = 'xlsx',
+): Promise<Blob> {
+  const response = await auditCoreRawRequest(
+    `${base(tenantId)}/dms-reports/${encodeURIComponent(reportId)}/file?format=${format}`, { accessToken });
   return response.blob();
 }
 

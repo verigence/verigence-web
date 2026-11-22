@@ -1168,8 +1168,11 @@ export type P2DealRow = {
   notTaken?: boolean;
   /** Charged on the NDC / cost sheet and on no other document (2026-11-11): a comment, never a task. */
   statementOnly?: boolean;
-  /** The line's rows written FREE on the NDC (2026-11-22), as one sentence; also in the system remarks. */
+  /** The line's rows written FREE on the NDC (2026-11-22), as one sentence; also in the system remarks.
+   * On the accessories line, also the split: bought, free and to be paid. */
   ndcNote?: string | null;
+  /** Accessories only (2026-11-22): what was bought, what is free, what the customer pays, and free above it. */
+  freeSplit?: { bought: Money; free: Money; toPay: Money; overFree: Money } | null;
   /** Accessories bought beyond the NDC / cost sheet (2026-11-12): what the customer ledger posts over
    * the NDC's charge. In the amount to be received, in no line, standard or variance of the deal. */
   addOn?: Money;

@@ -65,9 +65,10 @@ describe('periods, pending work and bookings / deliveries', () => {
   });
 
   it('adds bookings and deliveries over outlets and days', () => {
-    const day = { bookings: 2, deliveries: 1, onRegister: 3, inTool: 1, notNotified: 1, notUploaded: 1, registerMissing: 0 };
+    const day = { bookings: 2, deliveries: 1, updated: 2, onRegister: 3, inTool: 1, notNotified: 1, notUploaded: 1, registerMissing: 0 };
     const total = flowOf([{ days: { '2026-11-09': day } }, { days: { '2026-11-09': day, '2026-11-10': day } }], ['2026-11-09']);
     expect(total.bookings).toBe(4);
+    expect(total.updated).toBe(4);
     expect(total.onRegister - total.inTool).toBe(4);
   });
 

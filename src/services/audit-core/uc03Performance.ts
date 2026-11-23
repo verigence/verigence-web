@@ -59,6 +59,22 @@ export type Performance = {
   tasks?: { outlets: Array<Place & TaskRow>; people: Array<{ actorId: string; name: string | null; role: string } & TaskRow> };
   uploads?: { outlets: Array<Place & ChannelRow>; people: Array<Who & ChannelRow> };
   quality?: { outlets: Array<Place & QualityRow>; people: Array<Who & QualityRow> };
+  /** Each PC against the DMS month (product owner 2026-11-23). */
+  dms?: DmsBacklog;
+};
+/** What the DMS says a PC received in the month and how much of it is in Verigence. A location
+ *  with several PCs gives every PC tagged to it the location's full count (product owner 2026-11-23). */
+export type DmsFigures = {
+  bookingDms: number; bookingSynced: number; bookingPending: number; bookingIntimated: number; bookingNotIntimated: number;
+  deliveryDms: number; deliverySynced: number; deliveryNotUploaded: number; deliveryNotInVerigence: number;
+  deliveryPending: number; deliveryIntimated: number; deliveryNotIntimated: number;
+};
+export type DmsBacklog = {
+  month: string | null; months: string[];
+  dealers: Array<{ dealerId: string; dealerName: string | null; bookingDumpDate: string | null; deliveryDumpDate: string | null;
+    unmapped: Array<DmsFigures & { label: string }> }>;
+  people: Array<DmsFigures & { actorId: string; name: string | null; locations: string[] }>;
+  notMapped: Array<{ actorId: string; name: string | null }>;
 };
 export type Who = { actorId: string; name: string | null; role: string };
 /** Files per day by how they came in: on their own, in a bulk (folder) upload, or through Google Drive. */
@@ -74,12 +90,13 @@ export type QualityRow = {
   pagesUploaded: number; blurred?: number; faded?: number; tooSmall?: number; otherQuality?: number; duplicatePages?: number;
   duplicateFiles?: number;
 };
-export type SectionKey = 'pending' | 'flow' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+export type SectionKey = 'dms' | 'pending' | 'flow' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
 export type Place = { outletId: string; outletName: string; dealerId: string; dealerName: string };
 /** Per kind of pending work: how many, by age (today, 1-3 days, 4-7 days, older). */
 export type PendingCounts = Record<string, number[]>;
 export type FlowDay = {
-  bookings: number; deliveries: number; onRegister: number; inTool: number; notNotified: number; notUploaded: number;
+  /** New bookings (new Journeys), new deliveries, and Journeys documents were added to (product owner 2026-11-23). */
+  bookings: number; deliveries: number; updated: number; onRegister: number; inTool: number; notNotified: number; notUploaded: number;
   registerMissing: number;
 };
 export type TaskRow = { raised: number[]; closed: number[]; open: number; overdue: number };
@@ -171,8 +188,10 @@ export function dutyDayState(day: DashDutyDay): DutyState {
 }
 
 /** One section (the tab that is open) of a date range: nothing else is read or sent. */
-export function getPerformance(tenantId: string, from: string, to: string, section: SectionKey | 'dashboard', accessToken?: string) {
+export function getPerformance(tenantId: string, from: string, to: string, section: SectionKey | 'dashboard', accessToken?: string,
+  month?: string | null) {
   const params = new URLSearchParams({ from, date: to, section });
+  if (month) params.set('month', month);
   return auditCoreRequest<Performance>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/reports/performance?${params.toString()}`,
     { accessToken, timeoutMs: 60_000 });
@@ -308,7 +327,7 @@ export function addPending(all: Array<PendingCounts | undefined>): PendingCounts
   return out;
 }
 
-const NO_FLOW: FlowDay = { bookings: 0, deliveries: 0, onRegister: 0, inTool: 0, notNotified: 0, notUploaded: 0, registerMissing: 0 };
+const NO_FLOW: FlowDay = { bookings: 0, deliveries: 0, updated: 0, onRegister: 0, inTool: 0, notNotified: 0, notUploaded: 0, registerMissing: 0 };
 
 /** The bookings, deliveries and gate register of some outlets over some days, added together. */
 export function flowOf(outlets: Array<{ days: Record<string, FlowDay> }>, days: string[]): FlowDay {

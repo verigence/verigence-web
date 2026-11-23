@@ -63,8 +63,9 @@ export function PcTracker({ outlets, totals, compact = false }: { outlets: PcOut
           <tr>
             <th>Outlet</th>
             {compact ? null : <th>Journeys (all time)</th>}
-            <th>Bookings uploaded</th>
-            <th>Deliveries updated</th>
+            <th title="New Journeys">New bookings</th>
+            <th title="Journeys whose first delivery page came in the period">New deliveries</th>
+            <th title="Journeys documents were added to on another day">Journeys updated</th>
             <th>Journeys completed</th>
             <th>Gate register uploaded</th>
             <th>Pending delivery files</th>
@@ -80,6 +81,7 @@ export function PcTracker({ outlets, totals, compact = false }: { outlets: PcOut
               {compact ? null : <td>{o.journeysTotal}</td>}
               <td>{o.bookingsUploaded}</td>
               <td>{o.deliveriesUpdated}</td>
+              <td>{o.journeysUpdated ?? 0}</td>
               <td>{o.journeysCompleted}</td>
               <td className={o.gateRegisterUploaded < o.gateRegisterDays ? 'p2mw-attn' : undefined}>{registerUploaded(o)}</td>
               <td className={o.pendingDeliveryFiles ? 'p2mw-attn' : undefined}>{o.pendingDeliveryFiles}</td>
@@ -96,6 +98,7 @@ export function PcTracker({ outlets, totals, compact = false }: { outlets: PcOut
               {compact ? null : <th>{totals.journeysTotal}</th>}
               <th>{totals.bookingsUploaded}</th>
               <th>{totals.deliveriesUpdated}</th>
+              <th>{totals.journeysUpdated ?? 0}</th>
               <th>{totals.journeysCompleted}</th>
               <th>{totals.gateRegisterUploaded} of {totals.gateRegisterDays}</th>
               <th>{totals.pendingDeliveryFiles}</th>

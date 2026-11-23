@@ -81,6 +81,7 @@ function PcRowCells({ figures, entry }: { figures: PcRowFigures; entry: GateRegi
       <td>{figures.journeysUploaded}</td>
       <td>{figures.bookingsUploaded}</td>
       <td>{figures.deliveriesUpdated}</td>
+      <td>{figures.journeysUpdated ?? 0}</td>
       <td className={figures.duplicatesDeleted ? 'p2mw-attn' : undefined}>{figures.duplicatesDeleted ?? 0}</td>
       <td>{figures.journeysCompleted}</td>
       <td>{registerSummary(figures, entry)}</td>
@@ -99,7 +100,9 @@ function PcDateTable({ rows, totals, showOutlets }: { rows: PcRow[]; totals: PcF
       <table className="p2w-table p2mw-table" aria-label="Date wise">
         <thead>
           <tr>
-            <th>Date</th><th>Journeys uploaded</th><th>Bookings</th><th>Deliveries</th>
+            <th>Date</th><th>Journeys uploaded</th><th title="New Journeys">New bookings</th>
+            <th title="Journeys whose first delivery page came that day">New deliveries</th>
+            <th title="Journeys documents were added to on another day">Journeys updated</th>
             <th title="Uploads deleted by the system as the same file uploaded again">Duplicates deleted</th>
             <th>Journeys completed</th>
             <th>Gate register</th><th>Pending delivery files</th><th>Tasks worked</th><th>Tasks closed</th>
@@ -123,6 +126,7 @@ function PcDateTable({ rows, totals, showOutlets }: { rows: PcRow[]; totals: PcF
           <tr>
             <th>Total</th>
             <th>{totals.journeysUploaded}</th><th>{totals.bookingsUploaded}</th><th>{totals.deliveriesUpdated}</th>
+            <th>{totals.journeysUpdated ?? 0}</th>
             <th>{totals.duplicatesDeleted ?? 0}</th>
             <th>{totals.journeysCompleted}</th>
             <th>{registerSummary(totals, null)}</th>
@@ -335,8 +339,9 @@ export default function P2MyTrackerPage() {
               <div className="p2mw-tiles">
                 {/* The chosen period, summed (product owner 2026-11-17: a date range sums up the bookings,
                     deliveries and gate register entries). */}
-                <Tile label="Bookings" value={data.totals.bookingsUploaded} hint="booking files uploaded" />
-                <Tile label="Deliveries" value={data.totals.deliveriesUpdated} hint="delivery files uploaded" />
+                <Tile label="New bookings" value={data.totals.bookingsUploaded} hint="new Journeys" />
+                <Tile label="New deliveries" value={data.totals.deliveriesUpdated} hint="first delivery page" />
+                <Tile label="Journeys updated" value={data.totals.journeysUpdated ?? 0} hint="documents added later" />
                 <Tile label="Gate register entries" value={data.totals.registerTotal}
                   hint={`${data.totals.registerIntimated} intimated · ${data.totals.uploadedInTool} in tool`} />
                 <Tile label="Journeys completed" value={data.totals.journeysCompleted} hint="delivery files closed" />

@@ -24,7 +24,7 @@ const FREQUENCY: Record<string, string> = { DAILY: 'Daily', WEEKLY: 'Weekly', MO
 const TONE_WORD: Record<string, string> = { good: 'Good', warn: 'Watch', bad: 'Act' };
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 /** The tabs of a dashboard (product owner 2026-11-13: "make tabs to it instead of showing in one page all"). */
-export type View = 'overview' | 'pending' | 'team' | 'efficiency' | 'uploads' | 'tasks' | 'duties';
+export type View = 'dms' | 'overview' | 'pending' | 'team' | 'efficiency' | 'uploads' | 'tasks' | 'duties';
 
 /** The efficiency scorecards with rows: the PCs and the Reviewers (product owner 2026-11-14: "why no
  *  reviewer is being shown in reports to TL"). */
@@ -35,6 +35,7 @@ export function efficiencyCards(board: Board): DashCard[] {
 
 /** Whether the server sent anything for a tab (a SuperAdmin may have hidden its blocks for the role). */
 export function viewHas(board: Board, view: View): boolean {
+  if (view === 'dms') return false; // no dashboard block: the tab opens on its table
   if (view === 'overview') return Boolean(board.kpis?.tiles.length || board.attention || board.trend || board.peers);
   if (view === 'pending') return Boolean(board.pending);
   if (view === 'team') return Boolean(board.scorecards?.length);
@@ -46,6 +47,7 @@ export function viewHas(board: Board, view: View): boolean {
 
 export function viewLabel(view: View, board?: Board): string {
   const own = board ? board.view !== 'TEAM' : false;
+  if (view === 'dms') return own ? 'Me against the DMS' : 'Against the DMS';
   if (view === 'overview') return own ? 'What I did' : 'Overview';
   if (view === 'pending') return board?.view === 'PC' ? 'Waiting for me' : board?.view === 'REVIEWER' ? 'Waiting for review' : 'Pending';
   if (view === 'team') return own ? 'My outlets' : 'Team and outlets';

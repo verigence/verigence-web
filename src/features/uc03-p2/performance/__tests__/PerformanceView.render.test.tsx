@@ -31,7 +31,7 @@ const base: Performance = {
     outlets: [{ ...place, counts: { deliveriesNotUploaded: [1, 0, 0, 0], deliveryFilesOpen: [2, 3, 1, 1], paymentsNotReconciled: [0, 4, 0, 0] } }],
     people: [{ actorId: 'a', name: 'Ravi', role: 'PC', counts: { deliveryFilesOpen: [2, 3, 1, 1] } }],
   },
-  flow: { outlets: [{ ...place, days: { '2026-11-13': { bookings: 5, deliveries: 3, onRegister: 6, inTool: 4, notNotified: 1, notUploaded: 2, registerMissing: 0 } } }] },
+  flow: { outlets: [{ ...place, days: { '2026-11-13': { bookings: 5, deliveries: 3, updated: 4, onRegister: 6, inTool: 4, notNotified: 1, notUploaded: 2, registerMissing: 0 } } }] },
   tasks: {
     outlets: [{ ...place, raised: [0, 0, 3, 2, 4, 1, 5], closed: [0, 0, 2, 2, 1, 1, 3], open: 12, overdue: 4 }],
     people: [{ actorId: 'a', name: 'Ravi', role: 'PC', raised: [0, 0, 3, 2, 4, 1, 5], closed: [0, 0, 2, 2, 1, 1, 3], open: 12, overdue: 4 }],
@@ -48,15 +48,15 @@ const base: Performance = {
 
 type TabKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialDetail']>;
 type ViewKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialView']>;
-const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', failed: 'quality', tasks: 'tasks', trend: 'trend',
+const SECTION: Record<TabKey, string> = { dms: 'dms', backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', failed: 'quality', tasks: 'tasks', trend: 'trend',
   efficiency: 'efficiency', duties: 'duties' };
-const VIEW: Record<TabKey, ViewKey> = { backlog: 'pending', bookings: 'overview', deliveries: 'overview', uploads: 'uploads', quality: 'uploads', failed: 'uploads', tasks: 'tasks', trend: 'overview',
+const VIEW: Record<TabKey, ViewKey> = { dms: 'dms', backlog: 'pending', bookings: 'overview', deliveries: 'overview', uploads: 'uploads', quality: 'uploads', failed: 'uploads', tasks: 'tasks', trend: 'overview',
   efficiency: 'efficiency', duties: 'duties' };
 
 /** The detail under a dashboard tab, opened. */
 function render(data: Performance, tab: TabKey, dashboard?: Performance): string {
   const client = new QueryClient();
-  client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', SECTION[tab]], data);
+  client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', SECTION[tab], null], data);
   if (dashboard) client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'dashboard'], dashboard);
   return renderToString(
     <QueryClientProvider client={client}>
@@ -105,11 +105,31 @@ describe('Performance view', () => {
 
   it('keeps bookings and deliveries apart, the deliveries against the gate register day by day', () => {
     const bookings = render(base, 'bookings');
-    expect(bookings).toContain('Bookings uploaded');
+    expect(bookings).toContain('New bookings');
+    expect(bookings).toContain('Journeys updated');
     expect(bookings).not.toContain('On register');
     const deliveries = render(base, 'deliveries');
-    for (const head of ['Deliveries uploaded', 'On register', 'Not intimated', 'Not uploaded', 'Registers missed']) expect(deliveries).toContain(head);
+    for (const head of ['New deliveries', 'On register', 'Not intimated', 'Not uploaded', 'Registers missed']) expect(deliveries).toContain(head);
     expect(deliveries).toMatch(/Fri 13<\/th><td><strong>3<\/strong><\/td><td>6<\/td><td class="p2mw-attn">1<\/td><td class="p2pf-low">2<\/td>/);
+  });
+
+  it('shows each PC against the DMS month, bookings and deliveries (2026-11-23)', () => {
+    const f = { bookingDms: 20, bookingSynced: 15, bookingPending: 5, bookingIntimated: 2, bookingNotIntimated: 3,
+      deliveryDms: 12, deliverySynced: 8, deliveryNotUploaded: 1, deliveryNotInVerigence: 3, deliveryPending: 4,
+      deliveryIntimated: 1, deliveryNotIntimated: 3 };
+    const data: Performance = { ...base, sections: [{ key: 'dms', label: '' }, ...base.sections!], dms: {
+      month: '2026-11', months: ['2026-11'],
+      dealers: [{ dealerId: 'd1', dealerName: 'Utkal', bookingDumpDate: '2026-11-23', deliveryDumpDate: '2026-11-23', unmapped: [] }],
+      people: [{ actorId: 'a', name: 'Ravi', locations: ['BARBIL'], ...f }, { actorId: 'b', name: 'Asha', locations: ['BARBIL'], ...f }],
+      notMapped: [] } };
+    const html = render(data, 'dms');
+    expect(html).toContain('Each PC against the DMS, November 2026');
+    expect(html).toMatch(/role="tab"[^>]*>Against the DMS</);
+    // The shared location: both PCs carry its full count.
+    expect(html).toMatch(/Ravi<div[^>]*>BARBIL<\/div><\/th><td>20<\/td><td>15<span[^>]*> 75%<\/span><\/td><td class="p2pf-low"><strong>5<\/strong><\/td>/);
+    expect(html).toMatch(/Asha<div[^>]*>BARBIL<\/div><\/th><td>20<\/td>/);
+    expect(html).toContain('Booking in, delivery not uploaded');
+    expect(html).toContain('bookings to 23 Nov');
   });
 
   it('shows how direct, bulk and Drive uploads are used, and the duplicates and quality issues', () => {

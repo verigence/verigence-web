@@ -57,8 +57,9 @@ function PcHome({ outlets, totals, tenantId, accessToken }: {
     <>
       <div className="p2mw-tiles">
         <Tile label="Journeys uploaded" value={totals.journeysUploaded} hint={`${totals.journeysTotal} in total, all time`} />
-        <Tile label="Bookings uploaded" value={totals.bookingsUploaded} />
-        <Tile label="Deliveries updated" value={totals.deliveriesUpdated} />
+        <Tile label="New bookings" value={totals.bookingsUploaded} hint="new Journeys" />
+        <Tile label="New deliveries" value={totals.deliveriesUpdated} hint="first delivery page" />
+        <Tile label="Journeys updated" value={totals.journeysUpdated ?? 0} hint="documents added later" />
         <Tile label="Journeys completed" value={totals.journeysCompleted} hint="delivery files closed" />
         <Tile label="Gate register" value={`${totals.gateRegisterUploaded}/${totals.gateRegisterDays}`}
           hint="registers uploaded" tone={totals.gateRegisterMissed ? 'bad' : totals.gateRegisterUploaded < totals.gateRegisterDays ? 'warn' : undefined} />

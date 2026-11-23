@@ -39,6 +39,8 @@ export interface DiscountVarianceItem {
   deliveryDate?: string | null;
   model: string | null;
   variant: string | null;
+  /** The Journey's Deal Type (2026-11-23): Inscope / Outscope / MR / Lease / Bulk; null while not decided. */
+  dealType?: string | null;
   discountKey: string;
   discount: string | null;
   status: DiscountVarianceStatus;

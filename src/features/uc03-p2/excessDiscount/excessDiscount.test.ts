@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DiscountVarianceItem } from '../../../services/audit-core/uc03DiscountVariance';
 import {
-  applyFilters, breakdown, EMPTY_FILTERS, excessOf, excessOnly, inView, offerLine, readingsLine, viewFromParams, filtersFromParams, paramsFromFilters, quickRange, sortItems, toCsv, totals,
+  applyFilters, breakdown, dealTypeOf, EMPTY_FILTERS, excessOf, excessOnly, inView, modelOf, offerLine, options, readingsLine, viewFromParams, filtersFromParams, paramsFromFilters, quickRange, sortItems, toCsv, totals,
 } from './excessDiscount';
 
 const row = (over: Partial<DiscountVarianceItem>): DiscountVarianceItem => ({
@@ -33,6 +33,26 @@ describe('the Excess discount screen filters (product owner 2026-11-06)', () => 
     expect(applyFilters(over, { ...EMPTY_FILTERS, basis: 'delivery', from: '2026-10-01' }).map((i) => i.journeyId)).toEqual(['j1']);
     expect(applyFilters(over, { ...EMPTY_FILTERS, dealer: 'Shivnath', discount: 'Dealer cash' })).toHaveLength(1);
     expect(applyFilters(over, { ...EMPTY_FILTERS, q: 'shi-2' })).toHaveLength(2);
+  });
+
+  it('filters by deal type and by model; a deal type not decided and a model not identified are their own choices', () => {
+    // Product owner, 23 Nov 2026: "give filters to have inscope, and filter by dealership, model wise".
+    const rows = [
+      row({ journeyId: 'a', dealType: 'Inscope', model: 'MAXX HD' }),
+      row({ journeyId: 'b', dealType: 'Outscope', model: 'MAXX HD' }),
+      row({ journeyId: 'c', dealType: null, model: null }),
+    ];
+    expect(applyFilters(rows, { ...EMPTY_FILTERS, dealType: 'Inscope' }).map((i) => i.journeyId)).toEqual(['a']);
+    expect(applyFilters(rows, { ...EMPTY_FILTERS, model: 'MAXX HD' }).map((i) => i.journeyId)).toEqual(['a', 'b']);
+    expect(applyFilters(rows, { ...EMPTY_FILTERS, model: 'MAXX HD', dealType: 'Outscope' }).map((i) => i.journeyId)).toEqual(['b']);
+    expect(options(rows, dealTypeOf)).toEqual(['Deal type not decided', 'Inscope', 'Outscope']);
+    expect(applyFilters(rows, { ...EMPTY_FILTERS, dealType: 'Deal type not decided' }).map((i) => i.journeyId)).toEqual(['c']);
+    expect(applyFilters(rows, { ...EMPTY_FILTERS, model: 'Model not identified' }).map((i) => i.journeyId)).toEqual(['c']);
+    expect(breakdown(rows, modelOf)[0]).toMatchObject({ name: 'MAXX HD', discounts: 2, bookings: 2 });
+    const params = paramsFromFilters({ ...EMPTY_FILTERS, dealType: 'Inscope', model: 'MAXX HD' });
+    expect(filtersFromParams(params)).toEqual({ ...EMPTY_FILTERS, dealType: 'Inscope', model: 'MAXX HD' });
+    expect(toCsv(rows, 'booking').split('\n')[0]).toContain('Variant,Deal type,Discount type');
+    expect(toCsv(rows, 'booking').split('\n')[1]).toContain('AX5,Inscope,Consumer offer');
   });
 
   it('totals and breakdowns follow the filters', () => {

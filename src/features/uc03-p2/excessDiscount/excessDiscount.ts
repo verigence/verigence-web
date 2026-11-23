@@ -2,7 +2,7 @@ import type { DiscountVarianceItem } from '../../../services/audit-core/uc03Disc
 
 /**
  * Excess discount screen (product owner 2026-11-06): filters by date,
- * dealership, outlet, discount type, PC and source document; totals and
+ * dealership, outlet, discount type, deal type, model, PC and source document; totals and
  * breakdowns follow the filters; the table sorts and pages. Pure functions,
  * so the screen and its tests read the same rules.
  */
@@ -17,23 +17,30 @@ export interface ExcessFilters {
   dealer: string;
   outlet: string;
   discount: string;
+  /** 2026-11-23 (product owner: "filters to have inscope ... model wise"). */
+  dealType: string;
+  model: string;
   pc: string;
   source: string;
   q: string;
 }
 
 export const EMPTY_FILTERS: ExcessFilters = {
-  basis: 'booking', from: '', to: '', dealer: '', outlet: '', discount: '', pc: '', source: '', q: '',
+  basis: 'booking', from: '', to: '', dealer: '', outlet: '', discount: '', dealType: '', model: '', pc: '', source: '',
+  q: '',
 };
 
 const NOT_RECORDED = {
   dealer: 'Dealership not recorded', outlet: 'Outlet not recorded', pc: 'PC not recorded', source: 'Source not recorded',
+  dealType: 'Deal type not decided', model: 'Model not identified',
 };
 
 export const discountOf = (i: DiscountVarianceItem) => i.discount ?? i.discountKey;
 export const dealerOf = (i: DiscountVarianceItem) => i.dealer ?? NOT_RECORDED.dealer;
 export const outletOf = (i: DiscountVarianceItem) => i.outlet ?? NOT_RECORDED.outlet;
 export const pcOf = (i: DiscountVarianceItem) => i.pc ?? NOT_RECORDED.pc;
+export const dealTypeOf = (i: DiscountVarianceItem) => i.dealType ?? NOT_RECORDED.dealType;
+export const modelOf = (i: DiscountVarianceItem) => i.model ?? NOT_RECORDED.model;
 export const sourceOf = (i: DiscountVarianceItem) => i.givenDocument ?? NOT_RECORDED.source;
 export const dateOf = (i: DiscountVarianceItem, basis: DateBasis) =>
   (basis === 'delivery' ? i.deliveryDate : i.bookingDate) ?? null;
@@ -95,6 +102,8 @@ export function applyFilters(items: DiscountVarianceItem[], f: ExcessFilters): D
     if (f.dealer && dealerOf(i) !== f.dealer) return false;
     if (f.outlet && outletOf(i) !== f.outlet) return false;
     if (f.discount && discountOf(i) !== f.discount) return false;
+    if (f.dealType && dealTypeOf(i) !== f.dealType) return false;
+    if (f.model && modelOf(i) !== f.model) return false;
     if (f.pc && pcOf(i) !== f.pc) return false;
     if (f.source && sourceOf(i) !== f.source) return false;
     if (q) {
@@ -172,14 +181,14 @@ export function quickRange(kind: 'this-month' | 'last-month' | 'last-30', today 
 /** The filtered rows as CSV, for Export. */
 export function toCsv(items: DiscountVarianceItem[], basis: DateBasis): string {
   const head = [basis === 'delivery' ? 'Delivery date' : 'Booking date', 'Journey', 'Customer', 'Dealership', 'Outlet', 'PC',
-    'Model', 'Variant', 'Discount type', 'Status', 'Entitled', 'Given', 'Excess', 'Kit as cash', 'Why', 'Allowed if in-house',
+    'Model', 'Variant', 'Deal type', 'Discount type', 'Status', 'Entitled', 'Given', 'Excess', 'Kit as cash', 'Why', 'Allowed if in-house',
     'Given per'];
   const cell = (v: unknown) => {
     const text = v === null || v === undefined ? '' : String(v);
     return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
   };
   const rows = items.map((i) => [dateOf(i, basis), i.journeyReference, i.customer, i.dealer, i.outlet, i.pc, i.model,
-    i.variant, discountOf(i), i.status, i.entitled, i.invoice, i.status === 'KIT_AS_CASH' ? null : i.variance, i.kit, i.reason,
+    i.variant, i.dealType, discountOf(i), i.status, i.entitled, i.invoice, i.status === 'KIT_AS_CASH' ? null : i.variance, i.kit, i.reason,
     i.ifInhouse, i.givenDocument].map(cell).join(','));
   return [head.join(','), ...rows].join('\n');
 }
@@ -193,7 +202,7 @@ export function filtersFromParams(params: URLSearchParams): ExcessFilters {
   const basis = params.get('basis') === 'delivery' ? 'delivery' : 'booking';
   const get = (k: keyof ExcessFilters) => params.get(k) ?? '';
   return { basis, from: get('from'), to: get('to'), dealer: get('dealer'), outlet: get('outlet'), discount: get('discount'),
-    pc: get('pc'), source: get('source'), q: get('q') };
+    dealType: get('dealType'), model: get('model'), pc: get('pc'), source: get('source'), q: get('q') };
 }
 
 export function paramsFromFilters(f: ExcessFilters, base = new URLSearchParams()): URLSearchParams {

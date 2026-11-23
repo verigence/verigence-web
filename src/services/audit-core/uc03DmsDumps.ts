@@ -112,6 +112,7 @@ export const DMS_OUTCOME_LABELS: Record<DmsRowOutcome, { label: string; tone: 'o
 
 export const DMS_MATCH_BASIS: Record<string, string> = {
   BOOKING_NUMBER: 'Booking no. / OTF',
+  ENQUIRY_NUMBER: 'Enquiry number',
   CHASSIS: 'Chassis',
   MOBILE: 'Mobile',
   NAME_DATE: 'Name + booking date',

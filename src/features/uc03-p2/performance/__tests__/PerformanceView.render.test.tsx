@@ -119,8 +119,10 @@ describe('Performance view', () => {
       deliveryIntimated: 1, deliveryNotIntimated: 3 };
     const data: Performance = { ...base, sections: [{ key: 'dms', label: '' }, ...base.sections!], dms: {
       month: '2026-11', months: ['2026-11'],
-      dealers: [{ dealerId: 'd1', dealerName: 'Utkal', bookingDumpDate: '2026-11-23', deliveryDumpDate: '2026-11-23', unmapped: [] }],
-      people: [{ actorId: 'a', name: 'Ravi', locations: ['BARBIL'], ...f }, { actorId: 'b', name: 'Asha', locations: ['BARBIL'], ...f }],
+      dealers: [{ dealerId: 'd1', dealerName: 'Utkal', bookingDumpDate: '2026-11-23', deliveryDumpDate: '2026-11-23',
+        bookingsTill: '2026-11-21', deliveriesTill: '2026-11-22', unmapped: [] }],
+      people: [{ actorId: 'a', name: 'Ravi', locations: ['BARBIL'], bookingsTill: '2026-11-21', deliveriesTill: '2026-11-22', ...f },
+        { actorId: 'b', name: 'Asha', locations: ['BARBIL'], bookingsTill: '2026-11-21', deliveriesTill: '2026-11-22', ...f }],
       notMapped: [] } };
     const html = render(data, 'dms');
     expect(html).toContain('Each PC against the DMS, November 2026');
@@ -129,7 +131,11 @@ describe('Performance view', () => {
     expect(html).toMatch(/Ravi<div[^>]*>BARBIL<\/div><\/th><td>20<\/td><td>15<span[^>]*> 75%<\/span><\/td><td class="p2pf-low"><strong>5<\/strong><\/td>/);
     expect(html).toMatch(/Asha<div[^>]*>BARBIL<\/div><\/th><td>20<\/td>/);
     expect(html).toContain('Booking in, delivery not uploaded');
-    expect(html).toContain('bookings to 23 Nov');
+    // Backlog till the last day the dumps hold, not their upload day (2026-11-23).
+    expect(html).toMatch(/Backlog till<\/strong> bookings <strong>21 Nov<\/strong> · deliveries <strong>22 Nov<\/strong>/);
+    expect(html).toContain('Bookings, till 21 Nov');
+    expect(html).toContain('Deliveries, till 22 Nov');
+    expect(html).toContain('bookings uploaded 23 Nov, holds till 21 Nov');
   });
 
   it('shows how direct, bulk and Drive uploads are used, and the duplicates and quality issues', () => {

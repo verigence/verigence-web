@@ -16,7 +16,10 @@ export type GateRegisterDay = {
 type OutletBase = { outletId: string; outletName: string; dealerId: string; dealerName: string; classification: string };
 
 export type PcFigures = {
+  /** bookingsUploaded: new Journeys; deliveriesUpdated: new deliveries; journeysUpdated: Journeys documents were
+   * added to on any other day (product owner 2026-11-23; absent from an older Audit Core). */
   journeysTotal: number; journeysUploaded: number; bookingsUploaded: number; deliveriesUpdated: number;
+  journeysUpdated?: number;
   /** Journeys the PC uploaded that the system deleted as the same file uploaded again (from 12 Nov 2026);
    * absent from an older Audit Core. */
   duplicatesDeleted?: number;
@@ -38,7 +41,7 @@ export type ReviewerOutlet = OutletBase & ReviewerFigures;
 export type MyWorkGrouping = 'day' | 'week' | 'month';
 
 /** One row of My Tracker (a day, a Monday-to-Sunday week or a calendar month), per outlet; tasks pending has no row. */
-export type PcRowFigures = Pick<PcFigures, 'journeysUploaded' | 'bookingsUploaded' | 'deliveriesUpdated' | 'duplicatesDeleted'
+export type PcRowFigures = Pick<PcFigures, 'journeysUploaded' | 'bookingsUploaded' | 'deliveriesUpdated' | 'journeysUpdated' | 'duplicatesDeleted'
   | 'journeysCompleted' | 'gateRegisterDays' | 'gateRegisterUploaded' | 'registerTotal' | 'registerIntimated'
   | 'uploadedInTool' | 'pendingDeliveryFiles' | 'tasksWorked' | 'tasksClosed'>;
 export type PcRowOutlet = PcRowFigures & {

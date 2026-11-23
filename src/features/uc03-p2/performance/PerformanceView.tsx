@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import Dashboard, { viewHas, viewLabel, type View } from './Dashboard';
+import DmsBacklogView from './DmsBacklogView';
 import FailedUploads from './FailedUploads';
 import { Segment } from '../my-work/MyWorkParts';
 import {
@@ -38,13 +39,14 @@ const MODES: Array<{ key: Mode; label: string }> = [
 ];
 /** The detail behind a dashboard tab: read only when it is opened (product owner 2026-11-13: "I
  *  don't want all to be shown in one"). */
-export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'failed' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+export type Tab = 'dms' | 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'failed' | 'tasks' | 'trend' | 'efficiency' | 'duties';
 /** mine: what the button reads for a PC or Reviewer, whose detail is their own row. own: read from
  *  its own report, not from a Performance section (the section only says whether the role sees it). */
 const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey; own?: true }> = [
+  { key: 'dms', label: 'Each PC against the DMS', mine: 'Me against the DMS', section: 'dms' },
   { key: 'backlog', label: 'Each kind with what is over 3 days', mine: 'As a table', section: 'pending' },
-  { key: 'bookings', label: 'Bookings by outlet', section: 'flow' },
-  { key: 'deliveries', label: 'Deliveries by outlet', section: 'flow' },
+  { key: 'bookings', label: 'New bookings by outlet', section: 'flow' },
+  { key: 'deliveries', label: 'New deliveries by outlet', section: 'flow' },
   { key: 'uploads', label: 'Uploads by person and day', mine: 'My uploads, day by day', section: 'uploads' },
   { key: 'quality', label: 'Failures and duplicates by person', mine: 'As a table', section: 'quality' },
   // Each failed upload and why (product owner 2026-11-13), from the Project Tracker, which repeated
@@ -60,6 +62,8 @@ const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey;
 /** open: the detail that opens with the tab (product owner 2026-11-14: "no where in the project
  *  tracker i see the number of duplicate files uploaded by PC, usage of different channel"). */
 const VIEWS: Array<{ key: View; details: Tab[]; open?: Tab }> = [
+  // What the DMS says each PC received, and how much of it is in Verigence (product owner 2026-11-23).
+  { key: 'dms', details: ['dms'], open: 'dms' },
   { key: 'overview', details: ['bookings', 'deliveries', 'trend'] },
   { key: 'pending', details: ['backlog'] },
   { key: 'team', details: [] },
@@ -190,17 +194,19 @@ function Bookings({ data, periods }: { data: Performance; periods: Period[] }) {
   const rows = grouped(outlets, level).map((g) => ({ ...g, total: flowOf(g.items, data.days).bookings }))
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   return (
-    <Section title="Bookings" about="Journeys uploaded as bookings (no delivery page in that day's uploads), per day or week."
+    <Section title="New bookings" about="New Journeys, on the day they were first uploaded (with no delivery page that day), per day or week; and the Journeys documents were added to later (Journeys updated)."
       controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={setLevel} /> : undefined}>
       <div className="p2pt-scroll">
         <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Bookings uploaded">
-          <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+          <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th>
+            <th scope="col" title="Journeys documents were added to, on a day that was neither their first nor their first delivery">Journeys updated</th></tr></thead>
           <tbody>
             {rows.map((g) => (
               <tr key={g.id}>
                 <th scope="row">{g.name}{g.sub ? <div className="p2w-muted p2pf-sub">{g.sub}</div> : null}</th>
                 {periods.map((p) => { const n = flowOf(g.items, daysOf(p)).bookings; return <td key={p.key} className={n ? undefined : 'p2pf-zero'}>{n || '—'}</td>; })}
                 <td><strong>{g.total}</strong></td>
+                <td>{flowOf(g.items, data.days).updated}</td>
               </tr>
             ))}
           </tbody>
@@ -209,6 +215,7 @@ function Bookings({ data, periods }: { data: Performance; periods: Period[] }) {
               <th scope="row">Total</th>
               {periods.map((p) => <td key={p.key}>{flowOf(outlets, daysOf(p)).bookings || '—'}</td>)}
               <td><strong>{flowOf(outlets, data.days).bookings}</strong></td>
+              <td>{flowOf(outlets, data.days).updated}</td>
             </tr>
           </tfoot>
         </table>
@@ -230,7 +237,7 @@ function DeliveryCells({ f }: { f: ReturnType<typeof flowOf> }) {
 }
 const DELIVERY_HEADS = (
   <>
-    <th scope="col" title="Journeys uploaded with a delivery page">Deliveries uploaded</th>
+    <th scope="col" title="Journeys whose first delivery page came that day">New deliveries</th>
     <th scope="col" title="Deliveries on the gate register">On register</th>
     <th scope="col" title="On the register, not intimated to the PC by the dealership">Not intimated</th>
     <th scope="col" title="Intimated to the PC and not in Verigence">Not uploaded</th>
@@ -251,7 +258,7 @@ function Deliveries({ data, periods }: { data: Performance; periods: Period[] })
   return (
     <>
       <Section title={`Deliveries per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}${picked ? `: ${picked.name}` : ''}`}
-        about="Deliveries uploaded against the gate register: on the register, not intimated to the PC, and intimated but not uploaded."
+        about="New deliveries (a Journey's first delivery page) against the gate register: on the register, not intimated to the PC, and intimated but not uploaded."
         controls={(
           <label className="p2pf-pick">Show{' '}
             <select value={scope} onChange={(e) => setScope(e.target.value)}>
@@ -722,9 +729,12 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
     enabled, staleTime: 120_000, refetchOnWindowFocus: false,
   });
   const open = detail ? TABS.find((t) => t.key === detail) ?? null : null;
+  // The DMS tab is month wise, not by the date range: its month is picked on the tab.
+  const [dmsMonth, setDmsMonth] = useState<string | null>(null);
+  const month = open?.section === 'dms' ? dmsMonth : null;
   const query = useQuery({
-    queryKey: ['p2-performance', tenantId, from, to, open?.section],
-    queryFn: () => getPerformance(tenantId, from, to, open!.section, accessToken),
+    queryKey: ['p2-performance', tenantId, from, to, open?.section, month],
+    queryFn: () => getPerformance(tenantId, from, to, open!.section, accessToken, month),
     enabled: enabled && Boolean(open) && !open?.own, staleTime: 120_000, refetchOnWindowFocus: false,
   });
   const board = dashboard.data?.dashboard;
@@ -813,6 +823,7 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
       {shown && data ? (
         <>
           {data.own && data.people && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
+          {shown === 'dms' && data.dms ? <DmsBacklogView dms={data.dms} own={data.own} onMonth={setDmsMonth} /> : null}
           {shown === 'backlog' && data.pending ? <Pending data={data} own={data.own} /> : null}
           {shown === 'bookings' && data.flow?.outlets.length ? <Bookings data={data} periods={periods} /> : null}
           {shown === 'deliveries' && data.flow?.outlets.length ? <Deliveries data={data} periods={periods} /> : null}

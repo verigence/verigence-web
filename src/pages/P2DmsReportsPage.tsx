@@ -20,6 +20,19 @@ function when(value: string | undefined): string {
     .format(new Date(value));
 }
 
+// The four groups, for bookings and deliveries alike, and the gate register (product owner 23 Nov 2026).
+const GROUPS: { key: string; band: string; label: string; act?: boolean }[] = [
+  { key: 'bookingSynced', band: 'Bookings', label: 'In Verigence and DMS' },
+  { key: 'bookingNotInDms', band: 'Bookings', label: 'In Verigence, not in DMS', act: true },
+  { key: 'bookingIntimated', band: 'Bookings', label: 'In DMS, intimated to PC, not in Verigence' },
+  { key: 'bookingNotIntimated', band: 'Bookings', label: 'Left over: in DMS, not intimated', act: true },
+  { key: 'gateRegister', band: 'Deliveries', label: 'As per gate register' },
+  { key: 'deliverySynced', band: 'Deliveries', label: 'In Verigence and DMS' },
+  { key: 'deliveryNotInDms', band: 'Deliveries', label: 'In Verigence, not in DMS', act: true },
+  { key: 'deliveryIntimated', band: 'Deliveries', label: 'In DMS, intimated to PC, not in Verigence' },
+  { key: 'deliveryNotIntimated', band: 'Deliveries', label: 'Left over: in DMS, not intimated', act: true },
+];
+
 function save(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -78,7 +91,7 @@ export default function P2DmsReportsPage() {
       <PageHeader
         eyebrow="Reports"
         title="DMS report"
-        description="The day's DMS booking and delivery dumps against Verigence, from the PCs' intimation marks: what is synced, what was intimated to the PC and is pending with them, and what was never intimated. With the days each outlet's gate register is missing and the outlets whose PC was not available."
+        description="The day's DMS booking and delivery dumps against Verigence: what is in both, what is in Verigence but not in DMS (for the PC to confirm), what was intimated to a PC but is not in Verigence, and what is left over. Deliveries also against the gate register."
         actions={setup.isError ? undefined : (
           <GenerateDmsReport tenantId={tenantId} accessToken={accessToken} day={reportDay} days={days} onDay={setPickedDay}
             onError={setError}
@@ -104,105 +117,34 @@ export default function P2DmsReportsPage() {
             <button type="button" className="p2w-link" onClick={() => choose(null)}>Close</button>
           </div>
           <div className="p2du-tiles">
-            <div className="p2du-tile"><span>Bookings in DMS</span><strong>{f.bookingDms ?? 0}</strong><small>{f.bookingSynced ?? 0} synced</small></div>
-            <div className="p2du-tile p2du-tile--warn"><span>Booking intimated to PC</span><strong>{f.bookingIntimated ?? 0}</strong><small>not in Verigence · pending with PC</small></div>
-            <div className="p2du-tile p2du-tile--bad"><span>Booking not intimated</span><strong>{f.bookingNotIntimated ?? 0}</strong><small>pending with dealership</small></div>
-            <div className="p2du-tile"><span>Deliveries in dump</span><strong>{f.deliveryDump ?? 0}</strong><small>{f.deliverySynced ?? 0} synced</small></div>
-            <div className="p2du-tile p2du-tile--warn"><span>Delivery intimated to PC</span><strong>{f.deliveryIntimated ?? 0}</strong><small>not uploaded · pending with PC</small></div>
-            <div className="p2du-tile p2du-tile--bad"><span>Delivery not intimated</span><strong>{f.deliveryNotIntimated ?? 0}</strong><small>pending with dealership</small></div>
-            <div className="p2du-tile"><span>Dump deliveries Inscope</span><strong>{f.dumpInscope ?? 0}</strong><small>{f.dumpOutscope ?? 0} Outscope{f.dumpOtherDealType ? ` · ${f.dumpOtherDealType} MR / Lease / Bulk` : ''}{f.dumpDealTypePending ? ` · ${f.dumpDealTypePending} pending` : ''}</small></div>
-          </div>
-          {report.data.nameDiffers?.length ? (
-            <div className="dmsr-review">
-              <h4>Matched, but the customer name differs ({report.data.nameDiffers.length})</h4>
-              <p className="p2w-muted">The chassis, booking number or mobile agree; the customer does not. Check whether the right papers are on the journey.</p>
-              <div className="p2du-scroll">
-                <table className="p2du-table">
-                  <thead><tr><th>Dealership</th><th>Dump</th><th>Date</th><th>DMS customer</th><th>Verigence customer</th><th>Journey</th><th>Journey outlet</th><th>Matched on</th></tr></thead>
-                  <tbody>
-                    {report.data.nameDiffers.map((r, i) => (
-                      <tr key={i}>
-                        <td>{r.dealerName}</td><td>{r.kind}</td><td>{r.eventDate ?? '—'}</td><td>{r.dmsCustomer ?? '—'}</td>
-                        <td>{r.journeyCustomer ?? '—'}</td><td>{r.journeyReference ?? '—'}</td><td>{r.journeyOutlet ?? '—'}</td>
-                        <td>{r.matchedOn ?? '—'}{r.matchedOn === 'Chassis' && r.chassis ? ` ${r.chassis}` : ''}{r.matchedOn === 'Mobile' && r.mobile ? ` ${r.mobile}` : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {GROUPS.map((g) => (
+              <div key={g.key} className={`p2du-tile${g.act && (f[g.key] ?? 0) > 0 ? ' p2du-tile--bad' : ''}`}>
+                <span>{g.band} · {g.label}</span><strong>{f[g.key] ?? 0}</strong>
               </div>
-            </div>
-          ) : null}
-          <div className="dmsr-statement">
-            <h4>Statement</h4>
-            {(report.data.statementLines ?? []).map((line, i) => (
-              line.startsWith('*') ? <p key={i}>{line}</p> : <p key={i} className="dmsr-statement__dealer">{line}</p>
             ))}
           </div>
-          <h4 className="dmsr-heading">Bookings: DMS against Verigence</h4>
-          <p className="p2w-muted">The DMS's date decides. DMS = synced + not in Verigence. Verigence = synced + not in DMS + not compared.</p>
+          <h4 className="dmsr-heading">By dealership</h4>
+          <p className="p2w-muted">Bookings and deliveries alike: in Verigence and DMS; in Verigence, not in DMS (the PC confirms each); in DMS, intimated to a PC, not in Verigence; left over (in DMS, not intimated, not in Verigence). Deliveries also as per the gate register. The lists, with the PC names, are in the Excel and PDF.</p>
           <div className="p2du-scroll">
             <table className="p2du-table">
-              <thead><tr><th>Dealership</th><th>Dump of</th><th className="num">As per DMS</th><th className="num">Synced</th>
-                <th className="num">Not in Verigence</th>
-                <th className="num">In Verigence</th><th className="num">In Verigence, not in DMS</th><th className="num">Not compared (no dump)</th>
-                <th className="num">DMS less Verigence</th></tr></thead>
+              <thead>
+                <tr><th /><th colSpan={4}>Bookings</th><th colSpan={5}>Deliveries</th></tr>
+                <tr><th>Dealership</th>{GROUPS.map((g) => <th key={g.key} className="num">{g.label}</th>)}</tr>
+              </thead>
               <tbody>
                 {report.data.dealers.map((d) => (
                   <tr key={d.dealerId}>
-                    <td>{d.dealerName}</td><td>{d.bookingDumpDate ?? 'No dump'}</td>
-                    <td className="num">{d.figures.bookingDms ?? 0}</td><td className="num">{d.figures.bookingSynced ?? 0}</td>
-                    <td className="num">{d.figures.bookingNotInVerigence ?? 0}</td>
-                    <td className="num">{d.figures.bookingInVerigence ?? 0}</td><td className="num">{d.figures.bookingNotInDms ?? 0}</td>
-                    <td className="num">{d.figures.bookingNotCompared ?? 0}</td><td className="num">{d.figures.bookingGap ?? '—'}</td>
+                    <td>{d.dealerName}</td>
+                    {GROUPS.map((g) => <td key={g.key} className="num">{d.figures[g.key] ?? 0}</td>)}
                   </tr>
                 ))}
+                <tr className="is-total">
+                  <td><strong>Project total</strong></td>
+                  {GROUPS.map((g) => <td key={g.key} className="num"><strong>{f[g.key] ?? 0}</strong></td>)}
+                </tr>
               </tbody>
             </table>
           </div>
-          <h4 className="dmsr-heading">Deliveries: dump against Verigence</h4>
-          <p className="p2w-muted">The DMS's date decides. Dump = synced + delivery not uploaded + not in Verigence. Verigence = synced + not in dump + not compared.</p>
-          <div className="p2du-scroll">
-            <table className="p2du-table">
-              <thead><tr><th>Dealership</th><th>Dump of</th><th className="num">As per dump</th><th className="num">Synced</th>
-                <th className="num">Delivery not uploaded</th><th className="num">Not in Verigence</th>
-                <th className="num">In Verigence</th><th className="num">In Verigence, not in dump</th><th className="num">Not compared (no dump)</th>
-                <th className="num">Dump less Verigence</th><th className="num">Inscope</th><th className="num">Outscope</th>
-                <th className="num">Gate register</th><th className="num">Registers missed</th></tr></thead>
-              <tbody>
-                {report.data.dealers.map((d) => (
-                  <tr key={d.dealerId}>
-                    <td>{d.dealerName}</td><td>{d.deliveryDumpDate ?? 'No dump'}</td>
-                    <td className="num">{d.figures.deliveryDump ?? 0}</td><td className="num">{d.figures.deliverySynced ?? 0}</td>
-                    <td className="num">{d.figures.deliveryNotUploaded ?? 0}</td>
-                    <td className="num">{d.figures.deliveryNotInVerigence ?? 0}</td>
-                    <td className="num">{d.figures.deliveryInVerigence ?? 0}</td><td className="num">{d.figures.deliveryNotInDms ?? 0}</td>
-                    <td className="num">{d.figures.deliveryNotCompared ?? 0}</td><td className="num">{d.figures.deliveryGap ?? '—'}</td>
-                    <td className="num">{d.figures.dumpInscope ?? 0}</td><td className="num">{d.figures.dumpOutscope ?? 0}</td>
-                    <td className="num">{d.figures.gateRegister ?? 0}</td><td className="num">{d.figures.registersMissed ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {report.data.datedElsewhere?.length ? (
-            <div className="dmsr-review">
-              <h4>In Verigence, dated outside the period ({report.data.datedElsewhere.length})</h4>
-              <p className="p2w-muted">The DMS row is found in Verigence, but Verigence dates the booking or delivery on another day. Check the date read from the papers.</p>
-              <div className="p2du-scroll">
-                <table className="p2du-table">
-                  <thead><tr><th>Dealership</th><th>Dump</th><th>DMS date</th><th>Customer</th><th>Journey</th><th>Verigence date</th><th>Dated by</th></tr></thead>
-                  <tbody>
-                    {report.data.datedElsewhere.map((r, i) => (
-                      <tr key={i}>
-                        <td>{r.dealerName}</td><td>{r.kind}</td><td>{r.dmsDate ?? '—'}</td><td>{r.customerName ?? '—'}</td>
-                        <td>{r.journeyReference ?? '—'}</td><td>{r.verigenceDate ?? '—'}</td><td>{r.datedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
         </SectionCard>
       ) : selected && report.isLoading ? <p className="p2w-muted">Loading…</p> : null}
 

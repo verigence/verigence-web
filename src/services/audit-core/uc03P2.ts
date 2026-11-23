@@ -1405,6 +1405,8 @@ export type P2Vehicle360 = {
   photoCount: number;
   addons: { accessories: P2TakenAddon; warranty: P2TakenAddon; insurance: P2TakenAddon };
   booking: { bookingReference?: string | null; bookingDate?: string | null; salesConsultant?: string | null;
+    /** The booking's enquiry number; enquiryNumberFromDms when only the DMS booking dump gives it. */
+    enquiryNumber?: string | null; enquiryNumberFromDms?: boolean;
     dealerBranch?: string | null; dealType?: string | null; dealSource?: string | null; leadSource?: string | null;
     expectedDelivery?: string | null };
   delivery: P2Record | null;

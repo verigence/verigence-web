@@ -440,8 +440,9 @@ const UNIT_LABELS: Array<[string, string]> = [
   ['vin', 'VIN'], ['chassis_number', 'Chassis no.'], ['dms_reference', 'DMS reference'], ['invoice_reference', 'Invoice reference'],
   ['allocated_at_utc', 'Allocated'],
 ];
-const BOOKING_LABELS: Array<[keyof P2Vehicle360['booking'], string]> = [
-  ['bookingDate', 'Booking date'], ['salesConsultant', 'Sales consultant'], ['dealerBranch', 'Dealer branch'],
+const BOOKING_LABELS: Array<[Exclude<keyof P2Vehicle360['booking'], 'enquiryNumberFromDms'>, string]> = [
+  ['bookingDate', 'Booking date'], ['enquiryNumber', 'Enquiry number'], ['salesConsultant', 'Sales consultant'],
+  ['dealerBranch', 'Dealer branch'],
   ['dealType', 'Deal type'], ['dealSource', 'Deal source'], ['leadSource', 'Lead source'], ['expectedDelivery', 'Expected delivery'],
 ];
 const DELIVERY_LABELS: Array<[string, string]> = [
@@ -547,7 +548,11 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
           <Fact label="Registration" fieldKey="registration_number" value={data.journey?.registrationNumber} />
           <Fact label="Financier" fieldKey="financier" value={data.journey?.financier ?? 'Cash / not known'} />
           <Fact label="Insurer" fieldKey="insurer" value={data.journey?.insurer} />
-          {BOOKING_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={data.booking[key]} />)}
+          {BOOKING_LABELS.map(([key, label]) => (
+            <Fact key={key} label={label} fieldKey={key}
+              value={key === 'enquiryNumber' && data.booking.enquiryNumber && data.booking.enquiryNumberFromDms
+                ? `${data.booking.enquiryNumber} (from DMS)` : data.booking[key]} />
+          ))}
           <div><dt>Journey started</dt><dd>{data.journey?.startedAtUtc ? formatDateTime(data.journey.startedAtUtc) : <span className="p2w-muted">Not available</span>}</dd></div>
         </dl>
         {data.product?.selection_status && data.product.selection_status !== 'RESOLVED' ? (

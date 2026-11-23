@@ -267,7 +267,13 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                 <thead>
                   <tr>
                     <th>Person</th><th>Active time</th><th>A day</th><th>Days</th><th>Usually in</th><th>Usually out</th>
-                    <th>Used on</th><th>Files</th><th title="Journey tasks worked plus Task Manager tasks done">Tasks</th>
+                    <th>Used on</th>
+                    <th title="New Journeys: a booking uploaded for the first time (the Project Tracker's rule)">New bookings</th>
+                    <th title="A Journey's first delivery files (the Project Tracker's rule)">New deliveries</th>
+                    <th title="Files added to a Journey already booked or delivered (the Project Tracker's rule)">Journeys updated</th>
+                    <th title="Every file uploaded: one Journey can take several files">Files</th>
+                    <th title="Journey tasks acted on in any way (a comment, an upload, a correction) plus Task Manager tasks done">Tasks worked</th>
+                    <th title="Tasks the person closed: the Project Tracker's Tasks closed">Tasks closed</th>
                     <th title={`On ${range.to}: the longest stretch with no file uploaded, task acted on or value saved`}>Longest with no output</th>
                     <th title={`On ${range.to}: 20-minute blocks that were active with nothing saved`}>Blocks active, no output</th>
                     <th title={`Active minutes followed by output within ${report.data.outputWindowMinutes ?? 20} minutes, over the dates chosen`}>Productive</th>
@@ -288,8 +294,12 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                         <td>{t.usualStart ?? '—'}</td>
                         <td>{t.usualEnd ?? '—'}</td>
                         <td className="p2w-muted">{sourcesText(t.activeMinutesBySource, minutesText)}</td>
+                        <td>{t.newBookings ?? '—'}</td>
+                        <td>{t.newDeliveries ?? '—'}</td>
+                        <td>{t.journeysUpdated ?? '—'}</td>
                         <td>{t.filesUploaded}</td>
                         <td>{t.journeyTasksWorked + t.tasksCompleted}</td>
+                        <td>{t.tasksClosed ?? '—'}</td>
                         {(() => {
                           const d = p.days?.find((x) => x.day === range.to);
                           return (

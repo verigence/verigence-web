@@ -1,0 +1,29 @@
+/* Every PC's day in one window (2026-11-23). On the workspace and My Tracker tokens; the brand
+   navy and teal, no green (product owner 2026-11-02); IBM Carbon spacing and type. */
+.pcd .pcd-search { display: inline-flex; gap: 8px; align-items: center; }
+.pcd .pcd-tile--bad { border-color: #ffb3b8; background: #fff1f1; }
+.pcd .pcd-tile--bad .p2mw-tile__hint { color: #a2191f; font-weight: 600; }
+.pcd .pcd-table th, .pcd .pcd-table td { white-space: nowrap; vertical-align: top; }
+.pcd .pcd-table thead th { font-size: 12px; white-space: normal; min-width: 72px; }
+.pcd .pcd-num { text-align: right; font-variant-numeric: tabular-nums; }
+.pcd .pcd-split { font-size: 12px; }
+.pcd .pcd-row { cursor: pointer; }
+.pcd .pcd-row:hover { background: var(--p2mw-navy-soft, #edf3fb); }
+.pcd .pcd-row.is-open { background: var(--p2mw-navy-soft, #edf3fb); }
+.pcd .pcd-row--unseen th, .pcd .pcd-row--unseen td { color: #6f6f6f; }
+.pcd .pcd-name { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--p2mw-navy, #003a82); cursor: pointer; text-align: left; }
+.pcd .pcd-sub { font-size: 12px; font-weight: 400; white-space: normal; max-width: 220px; }
+.pcd .pcd-tag { margin-left: 8px; padding: 0 8px; border-radius: 12px; background: #fff1f1; color: #a2191f; font-size: 12px; font-weight: 600; }
+.pcd .pcd-bad { color: #a2191f; font-weight: 600; }
+.pcd td.pcd-bad { background: #fff1f1; }
+.pcd .pcd-warn { color: #8a5300; }
+.pcd td.pcd-warn { background: #fffaf0; }
+.pcd .pcd-good { color: var(--p2mw-teal-ink, #00706b); }
+.pcd .pcd-detail-row > td { background: #f4f4f4; padding: 16px; }
+.pcd .pcd-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; white-space: normal; }
+.pcd .pcd-details h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.pcd .pcd-list { margin: 0 0 8px; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+.pcd .pcd-notes { margin: 16px 0 0; padding-left: 18px; font-size: 12px; }
+.pcd > .p2mw-tiles { margin-bottom: 8px; }
+.pcd .pcd-table th:first-child { min-width: 180px; }
+.pcd .pcd-time { font-size: 12px; white-space: nowrap; }

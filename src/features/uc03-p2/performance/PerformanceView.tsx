@@ -327,6 +327,51 @@ function sumIssues(all: Array<Record<Channel, number> | undefined>): Record<Chan
   return out;
 }
 
+/** Journeys by channel, new and updated, added up over rows (outlets or people). */
+function addJourneys(items: ChannelRow[], days: number): NonNullable<ChannelRow['journeys']> {
+  const zero = () => Array.from({ length: days }, () => 0);
+  const out = Object.fromEntries(CHANNELS.map((c) => [c.key, { new: zero(), updated: zero() }])) as NonNullable<ChannelRow['journeys']>;
+  for (const x of items) {
+    for (const c of CHANNELS) {
+      const j = x.journeys?.[c.key];
+      if (!j) continue;
+      j.new.forEach((n, i) => { out[c.key].new[i] += n; });
+      j.updated.forEach((n, i) => { out[c.key].updated[i] += n; });
+    }
+  }
+  return out;
+}
+
+/** Per day (or week): each channel's new Journeys and updates to existing Journeys (product owner
+ *  2026-11-23), with the totals, which are the New bookings + New deliveries and the Journeys updated. */
+function JourneysPerPeriod({ journeys, periods }: { journeys: NonNullable<ChannelRow['journeys']>; periods: Period[] }) {
+  const total = (kind: 'new' | 'updated') => CHANNELS.reduce<number[]>(
+    (acc, c) => acc.map((n, i) => n + (journeys[c.key][kind][i] ?? 0)), journeys.direct[kind].map(() => 0));
+  const line = (label: string, xs: number[], key: string, strong = false) => (
+    <tr key={key}>
+      <th scope="row" className={strong ? undefined : 'p2pf-indent'}>{strong ? <strong>{label}</strong> : label}</th>
+      {periods.map((p) => <td key={p.key}>{strong ? <strong>{sumAt(xs, p.indexes) || '—'}</strong> : (sumAt(xs, p.indexes) || '—')}</td>)}
+      <td><strong>{sum(xs)}</strong></td>
+    </tr>
+  );
+  return (
+    <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Journeys by channel per period: new and updates">
+      <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+      <tbody>
+        {CHANNELS.map((c) => (
+          <Fragment key={c.key}>
+            <tr className="p2pf-group-row"><th scope="rowgroup" colSpan={periods.length + 2}>{c.label}</th></tr>
+            {line('New journey', journeys[c.key].new, `${c.key}-new`)}
+            {line('Updates to existing journey', journeys[c.key].updated, `${c.key}-updated`)}
+          </Fragment>
+        ))}
+        {line('All channels: new journeys', total('new'), 'all-new', true)}
+        {line('All channels: updates to existing journeys', total('updated'), 'all-updated', true)}
+      </tbody>
+    </table>
+  );
+}
+
 function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
   const up = data.uploads!;
   // Each PC first: their files by channel, with the duplicates and errors of each.
@@ -337,6 +382,7 @@ function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
     drive: data.days.map((_, i) => items.reduce((n, x) => n + (x.drive[i] ?? 0), 0)),
     duplicates: sumIssues(items.map((x) => x.duplicates)),
     errors: sumIssues(items.map((x) => x.errors)),
+    journeys: items.some((x) => x.journeys) ? addJourneys(items, data.days.length) : undefined,
   });
   const rows = (level === 'person'
     ? up.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: undefined as string | undefined, row: p as ChannelRow }))
@@ -404,8 +450,12 @@ function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
           </table>
         </div>
       </Section>
-      <Section title={`Per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="All the people and outlets you read, together.">
+      <Section title={`Per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`}
+        about={all.journeys
+          ? 'All the people and outlets you read, together. Each Journey counts once a day, under the channel of its first file. New journey: a new booking, or the first delivery files of a Journey; update: anything else added to a Journey already booked or delivered.'
+          : 'All the people and outlets you read, together.'}>
         <div className="p2pt-scroll">
+          {all.journeys ? <JourneysPerPeriod journeys={all.journeys} periods={periods} /> : (
           <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Files by channel per period">
             <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
             <tbody>
@@ -414,6 +464,7 @@ function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       </Section>
     </>

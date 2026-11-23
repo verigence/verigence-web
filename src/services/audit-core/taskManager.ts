@@ -333,6 +333,9 @@ export type EngagementCell = {
   journeyTasksWorked: number; taskActions: number;
   tasksAssigned: number; tasksCompleted: number; tasksCompletedOnTime: number; sendBacksReceived: number;
   reviewsDone: number;
+  /** The Project Tracker's rules (2026-11-23): Journeys as new bookings, new deliveries or updated,
+   *  and the tasks the person closed. Absent from an older Audit Core. */
+  newBookings?: number; newDeliveries?: number; journeysUpdated?: number; tasksClosed?: number;
   /**
    * Days with minute detail (2026-11-16): active minutes there, how many were followed by output within
    * the output window, the rest, and the 20-minute blocks of clicking around. Absent from older servers.
@@ -437,7 +440,8 @@ export type DiDashboard = {
   totals: DiDay;
   days: DiDay[];
   failureReasons: Array<{ group: string; reason: string; documents: number; pages: number }>;
-  byPc: Array<{ actorId: string; name?: string | null; documents: number; pages: number; badScans: number;
+  /** files: what the PC uploaded (absent from an older Audit Core); documents: what DI read in them. */
+  byPc: Array<{ actorId: string; name?: string | null; files?: number; documents: number; pages: number; badScans: number;
                 notReadInTime: number; failedOther: number; readFirst: number;
                 badScanPct: number | null; readFirstPct: number | null }>;
   byDocumentType: Array<{ documentType: string; documents: number; readFirst: number; retried: number; failed: number;

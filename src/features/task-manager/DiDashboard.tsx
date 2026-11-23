@@ -188,7 +188,7 @@ export default function DiDashboard({ mode, tenantId, accessToken }: {
 
           <div className="tm-grid-2">
             <SectionCard>
-              <div className="p2w-card__title"><h3>Day by day</h3><p className="p2w-muted">By the day of the upload (IST).</p></div>
+              <div className="p2w-card__title"><h3>Day by day</h3><p className="p2w-muted">By the day of the upload (IST). Bad scans and failures are counted in documents read, not files.</p></div>
               <div className="p2dr-scroll">
                 <table className="p2dr-table">
                   <thead><tr><th>Day</th><th>Files</th><th>Read first</th><th>Bad scans</th><th>Failed</th><th>Time per file</th></tr></thead>
@@ -208,14 +208,14 @@ export default function DiDashboard({ mode, tenantId, accessToken }: {
               </div>
             </SectionCard>
             <SectionCard>
-              <div className="p2w-card__title"><h3>By PC</h3><p className="p2w-muted">Most bad scans first.</p></div>
+              <div className="p2w-card__title"><h3>By PC</h3><p className="p2w-muted">Most bad scans first. A file is what the PC uploaded; a document is what DI read in it (a page, or pages read together), so documents are always more than files and never match the Journeys or files of other reports.</p></div>
               <div className="p2dr-scroll">
                 <table className="p2dr-table">
-                  <thead><tr><th>PC</th><th>Documents</th><th>Read first</th><th>Bad scans</th><th>Failed</th></tr></thead>
+                  <thead><tr><th>PC</th><th title="Files the PC uploaded">Files</th><th title="Documents DI read in those files: a page, or pages read together">Documents read</th><th>Read first</th><th>Bad scans</th><th>Failed</th></tr></thead>
                   <tbody>
                     {pcsByBadScans(data).map((p) => (
                       <tr key={p.actorId}>
-                        <td>{personName(p.name, p.actorId)}</td><td>{p.documents}</td><td>{pct(p.readFirstPct)}</td>
+                        <td>{personName(p.name, p.actorId)}</td><td>{p.files ?? '—'}</td><td>{p.documents}<span className="p2w-muted"> · {p.pages} p</span></td><td>{pct(p.readFirstPct)}</td>
                         <td className={p.badScanPct !== null && p.badScanPct >= 10 ? 'tm-warn' : ''}>{p.badScans}<span className="p2w-muted"> ({pct(p.badScanPct)})</span></td>
                         <td className={p.notReadInTime + p.failedOther ? 'tm-bad' : ''}>{p.notReadInTime + p.failedOther}</td>
                       </tr>

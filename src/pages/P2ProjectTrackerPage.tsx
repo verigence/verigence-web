@@ -11,6 +11,7 @@ import SectionCard from '../components/SectionCard';
 import DutiesSection from '../features/duties/DutiesSection';
 import DailyWorkReport from '../features/uc03-p2/daily/DailyWorkReport';
 import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
+import PcDayView from '../features/task-manager/PcDayView';
 import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
 import DmsDumpCalendarTab from '../features/uc03-p2/tracker/DmsDumpCalendarTab';
 import JourneyBreakdownTab from '../features/uc03-p2/tracker/JourneyBreakdownTab';
@@ -54,7 +55,8 @@ function DailyWorkTab({ tenantId, accessToken, today, timezone }: {
 }
 
 /**
- * Project Tracker: the one place for a Team Lead, PM or Executive (2026-11-09). Without the
+ * Project Tracker: the one place for a Team Lead, PM or Executive (2026-11-09). It opens on the PCs'
+ * day: every PC's day in one window (product owner 2026-11-23). Without the
  * duplicates (product owner 2026-11-13: "Project Tracker has so much of duplicate information"):
  * - Performance, as it is: pending work, the team and outlets, efficiency, uploads with failures
  *   and duplicates, tasks and duties, over a date range;
@@ -76,7 +78,7 @@ export default function P2ProjectTrackerPage() {
   const today = istDate();
   const tabs = trackerTabsFor(role);
   const asked = trackerTabFromSearch(searchParams);
-  const tab: TrackerTab = tabs.some((t) => t.key === asked) ? asked : 'performance';
+  const tab: TrackerTab = tabs.some((t) => t.key === asked) ? asked : 'pc-day';
 
   // A PC or Reviewer has their own figures and performance on My Tracker.
   if (role === 'PC' || role === 'REVIEWER') return <Navigate to="/p2/tracker?tab=performance" replace />;
@@ -94,7 +96,7 @@ export default function P2ProjectTrackerPage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Project Tracker"
-        description="How the team is doing over a date range; the work done on tasks and the delivery files closed on a day; and deliveries on the gate register against delivery files uploaded."
+        description="What every PC did on a day, in one window; how the team is doing over a date range; the work done on tasks and the delivery files closed on a day; and deliveries on the gate register against delivery files uploaded."
       />
       {team ? <div className="p2pt-tabs" role="tablist" aria-label="Project Tracker">
         {tabs.map((t) => (
@@ -120,6 +122,7 @@ export default function P2ProjectTrackerPage() {
         <div className="p2w-alert p2w-alert--error" role="alert">Select a project to continue.</div>
       ) : (
         <div role="tabpanel" id={`p2pt-panel-${tab}`} aria-labelledby={`p2pt-tab-${tab}`} className="screen-stack">
+          {tab === 'pc-day' ? <PcDayView mode="project" tenantId={tenantId} accessToken={accessToken} /> : null}
           {tab === 'journeys' ? <JourneyBreakdownTab tenantId={tenantId} accessToken={accessToken}
             listPath={role === 'TL' ? '/dashboard' : '/p2/bookings'} /> : null}
           {tab === 'dms-dumps' ? <DmsDumpCalendarTab tenantId={tenantId} accessToken={accessToken} /> : null}

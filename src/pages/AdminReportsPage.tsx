@@ -17,6 +17,7 @@ import AccessLocationsSummary from '../features/dealguard-presence/AccessLocatio
 import LocationAwayReport from '../features/dealguard-presence/LocationAwayReport';
 import LocationChecksLog from '../features/dealguard-presence/LocationChecksLog';
 import EngagementDashboard from '../features/task-manager/EngagementDashboard';
+import PcDayView from '../features/task-manager/PcDayView';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import { getLoginActivity, type LoginPerson } from '../services/security/loginActivity';
 import { useSessionStore } from '../store/sessionStore';
@@ -25,6 +26,11 @@ import { useSessionStore } from '../store/sessionStore';
 // One place for the SuperAdmin's reports (product owner 2026-10-27): employee
 // engagement, the DI dashboard and the Journey review, one Project at a time.
 const REPORTS = [
+  {
+    key: 'pc-day',
+    title: "PCs' day",
+    description: "What every PC did on a day, in one window: new bookings, new deliveries and Journeys updated, files by channel, tasks worked and closed, delivery files closed, daily duties, the gate register owed, what is pending now, and time on Verigence.",
+  },
   {
     key: 'engagement',
     title: 'Employee engagement',
@@ -68,7 +74,7 @@ const REPORTS = [
 type ReportKey = (typeof REPORTS)[number]['key'];
 
 function reportOf(value: string | null): ReportKey {
-  return REPORTS.find((r) => r.key === value)?.key ?? 'engagement';
+  return REPORTS.find((r) => r.key === value)?.key ?? 'pc-day';
 }
 
 export default function AdminReportsPage() {
@@ -176,7 +182,8 @@ export default function AdminReportsPage() {
 
       {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' && reportKey !== 'location' && reportKey !== 'sign-ins' && reportKey !== 'performance' ? (
         <div className="p2-screen p2w">
-          {reportKey === 'engagement' ? (
+          {reportKey === 'pc-day' ? <PcDayView key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />
+            : reportKey === 'engagement' ? (
             <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}
               logins={logins.data ? byUser : undefined} />
           ) : <DiDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />}

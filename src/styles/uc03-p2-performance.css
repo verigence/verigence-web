@@ -33,3 +33,14 @@
 .p2pf-pick { font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
 .p2pf-pick select { min-height: 36px; padding: 0 8px; border: 1px solid var(--p2w-line, #8d8d8d); background: #fff; font: inherit; }
 .p2pf-till { margin: 4px 0 0; font-size: 14px; }
+
+/* Journeys by channel per day (2026-11-23): a channel heading row, its two lines indented. */
+.p2pf-table .p2pf-group-row th {
+  text-align: left;
+  font-weight: 600;
+  background: #f4f4f4;
+}
+.p2pf-table th.p2pf-indent {
+  padding-left: 1.5rem;
+  font-weight: 400;
+}

@@ -88,6 +88,10 @@ export type Channel = 'direct' | 'bulk' | 'drive';
 export type ChannelRow = {
   direct: number[]; bulk: number[]; drive: number[];
   duplicates?: Record<Channel, number>; errors?: Record<Channel, number>;
+  /** Journeys per day by channel (product owner 2026-11-23): each Journey once a day, under the
+   *  channel of its first file; new = a new booking or a Journey's first delivery files, updated =
+   *  anything else added to a Journey. Absent from an older Audit Core. */
+  journeys?: Record<Channel, { new: number[]; updated: number[] }>;
 };
 export type QualityRow = {
   pagesUploaded: number; blurred?: number; faded?: number; tooSmall?: number; otherQuality?: number; duplicatePages?: number;

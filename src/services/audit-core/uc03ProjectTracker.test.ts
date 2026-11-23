@@ -83,12 +83,13 @@ describe('Team Lead dashboard calendar month', () => {
 
 describe('Project Tracker tabs', () => {
   it('reads the tab from the address, Performance by default (old tracker addresses too)', () => {
-    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('performance');
+    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('pc-day');
     expect(trackerTabFromSearch(new URLSearchParams('tab=tracker'))).toBe('performance');
     expect(trackerTabFromSearch(new URLSearchParams('period=week&view=files'))).toBe('performance');
     expect(trackerTabFromSearch(new URLSearchParams('tab=daily-processing'))).toBe('daily-processing');
     expect(trackerTabFromSearch(new URLSearchParams('tab=gate-pass'))).toBe('gate-pass');
-    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('performance');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('pc-day');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=performance'))).toBe('performance');
   });
 
   it('the Daily processing day comes from ?day=, then the tracker date, never the future', () => {
@@ -103,7 +104,8 @@ describe('Project Tracker tabs', () => {
     // Journeys: the Dealership / Outlet / PC-wise panels moved off the TL landing page; DMS dumps:
     // the daily dumps like the gate register, the Team Lead's only.
     // Daily duties: the PCs' duties day by day and the duty list (2026-11-18).
-    expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Journeys', 'Work done and files closed',
+    // The PCs' day opens the Tracker (2026-11-23).
+    expect(TRACKER_TABS.map((t) => t.label)).toEqual(["PCs' day", 'Performance', 'Journeys', 'Work done and files closed',
       'Gate Register', 'Daily duties', 'DMS dumps']);
     expect(trackerTabsFor('TL').map((t) => t.key)).toContain('dms-dumps');
     expect(trackerTabsFor('PM').map((t) => t.key)).not.toContain('dms-dumps');
@@ -114,7 +116,8 @@ describe('Project Tracker tabs', () => {
     expect(trackerTabHref('daily-processing', '2026-11-08')).toBe('/p2/project-tracker?tab=daily-processing&day=2026-11-08');
     expect(trackerTabHref('daily-processing')).toBe('/p2/project-tracker?tab=daily-processing');
     expect(trackerTabHref('gate-pass')).toBe('/p2/project-tracker?tab=gate-pass');
-    expect(trackerTabHref('performance')).toBe('/p2/project-tracker');
+    expect(trackerTabHref('pc-day')).toBe('/p2/project-tracker');
+    expect(trackerTabHref('performance')).toBe('/p2/project-tracker?tab=performance');
   });
 });
 

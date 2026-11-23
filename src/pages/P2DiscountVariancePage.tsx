@@ -6,8 +6,8 @@ import '../styles/uc03-p2-excess-discount.css';
 
 import PageHeader from '../components/PageHeader';
 import {
-  applyFilters, breakdown, dateOf, offerLine, readingsLine, dealerOf, discountOf, EMPTY_FILTERS, excessOf, filtersFromParams, inView,
-  options, outletOf, paramsFromFilters, pcOf, quickRange, sortItems, sourceOf, toCsv, totals,
+  applyFilters, breakdown, dateOf, offerLine, readingsLine, dealerOf, dealTypeOf, discountOf, EMPTY_FILTERS, excessOf,
+  filtersFromParams, inView, modelOf, options, outletOf, paramsFromFilters, pcOf, quickRange, sortItems, sourceOf, toCsv, totals,
   viewFromParams, type Bucket, type ExcessFilters, type SortKey, type View,
 } from '../features/uc03-p2/excessDiscount/excessDiscount';
 import { getDiscountVariance } from '../services/audit-core/uc03DiscountVariance';
@@ -51,8 +51,8 @@ function day(value: string | null) {
 }
 
 const FILTER_LABEL: Record<keyof ExcessFilters, string> = {
-  basis: 'Date', from: 'From', to: 'To', dealer: 'Dealership', outlet: 'Outlet', discount: 'Discount type', pc: 'PC',
-  source: 'Given per', q: 'Search',
+  basis: 'Date', from: 'From', to: 'To', dealer: 'Dealership', outlet: 'Outlet', discount: 'Discount type',
+  dealType: 'Deal type', model: 'Model', pc: 'PC', source: 'Given per', q: 'Search',
 };
 
 /** Excess discount (revamped 2026-11-06, IBM Carbon patterns): a filter
@@ -92,6 +92,8 @@ export default function P2DiscountVariancePage() {
   const dealers = options(without('dealer'), dealerOf);
   const outlets = options(without('outlet'), outletOf);
   const discounts = options(without('discount'), discountOf);
+  const dealTypes = options(without('dealType'), dealTypeOf);
+  const models = options(without('model'), modelOf);
   const pcs = options(without('pc'), pcOf);
   const sources = options(without('source'), sourceOf);
 
@@ -205,6 +207,10 @@ export default function P2DiscountVariancePage() {
                       onChange={(v) => setFilters({ outlet: v })} />
               <Select id="xd-discount" label="Discount type" value={filters.discount} values={discounts} all="All discount types"
                       onChange={(v) => setFilters({ discount: v })} />
+              <Select id="xd-deal-type" label="Deal type" value={filters.dealType} values={dealTypes} all="All deal types"
+                      onChange={(v) => setFilters({ dealType: v })} />
+              <Select id="xd-model" label="Model" value={filters.model} values={models} all="All models"
+                      onChange={(v) => setFilters({ model: v })} />
               <Select id="xd-pc" label="PC" value={filters.pc} values={pcs} all="All PCs"
                       onChange={(v) => setFilters({ pc: v })} />
               <Select id="xd-source" label="Given per" value={filters.source} values={sources} all="Any document"
@@ -247,6 +253,8 @@ export default function P2DiscountVariancePage() {
             <section className="xd-breakdowns" aria-label="Where the excess went">
               <Breakdown title="By discount type" buckets={breakdown(shown, discountOf)} selected={filters.discount}
                          onPick={(v) => setFilters({ discount: filters.discount === v ? '' : v })} />
+              <Breakdown title="By model" buckets={breakdown(shown, modelOf)} selected={filters.model}
+                         onPick={(v) => setFilters({ model: filters.model === v ? '' : v })} />
               <Breakdown title="By dealership" buckets={breakdown(shown, dealerOf)} selected={filters.dealer}
                          onPick={(v) => setFilters({ dealer: filters.dealer === v ? '' : v })} />
               <Breakdown title="By outlet" buckets={breakdown(shown, outletOf)} selected={filters.outlet}
@@ -301,6 +309,7 @@ export default function P2DiscountVariancePage() {
                         <td data-label="Vehicle">
                           <span className="xd-primary">{item.model ?? '—'}</span>
                           {item.variant ? <span className="xd-secondary">{item.variant}</span> : null}
+                          {item.dealType ? <span className="xd-secondary">{item.dealType}</span> : null}
                         </td>
                         <td data-label="Discount type"><span className="xd-type">{discountOf(item)}</span></td>
                         {view === 'unknown'

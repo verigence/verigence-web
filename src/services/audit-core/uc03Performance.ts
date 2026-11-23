@@ -71,9 +71,12 @@ export type DmsFigures = {
 };
 export type DmsBacklog = {
   month: string | null; months: string[];
+  /** bookingsTill / deliveriesTill: the last day each dump holds (its rows' latest date, up to its upload
+   *  day): the backlog is till then (product owner 2026-11-23). Absent from an older Audit Core. */
   dealers: Array<{ dealerId: string; dealerName: string | null; bookingDumpDate: string | null; deliveryDumpDate: string | null;
-    unmapped: Array<DmsFigures & { label: string }> }>;
-  people: Array<DmsFigures & { actorId: string; name: string | null; locations: string[] }>;
+    bookingsTill?: string | null; deliveriesTill?: string | null; unmapped: Array<DmsFigures & { label: string }> }>;
+  people: Array<DmsFigures & { actorId: string; name: string | null; locations: string[];
+    bookingsTill?: string | null; deliveriesTill?: string | null }>;
   notMapped: Array<{ actorId: string; name: string | null }>;
 };
 export type Who = { actorId: string; name: string | null; role: string };

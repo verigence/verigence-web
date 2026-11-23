@@ -6,6 +6,15 @@ import type { DmsBacklog, DmsFigures } from '../../../services/audit-core/uc03Pe
 
 const monthLabel = (ym: string) => new Date(`${ym}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+/** One date when every row shares it, else the earliest to the latest. */
+function tillText(dates: Array<string | null | undefined>): string | null {
+  const known = [...new Set(dates.filter((d): d is string => Boolean(d)))].sort();
+  if (!known.length) return null;
+  return known.length === 1 ? shortDate(known[0]) : `${shortDate(known[0])} to ${shortDate(known[known.length - 1])}`;
+}
+/** "uploaded 23 Nov, holds till 21 Nov". */
+const dumpText = (uploaded: string | null, till?: string | null) => (uploaded
+  ? `uploaded ${shortDate(uploaded)}${till && till !== uploaded ? `, holds till ${shortDate(till)}` : ''}` : 'none');
 const share = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : '—');
 
 type Kind = 'all' | 'bookings' | 'deliveries';
@@ -55,6 +64,11 @@ export default function DmsBacklogView({ dms, own, onMonth }: { dms: DmsBacklog;
   const showB = kind !== 'deliveries';
   const showD = kind !== 'bookings';
   const unmapped = dms.dealers.flatMap((d) => d.unmapped.map((u) => ({ ...u, dealerName: d.dealerName })));
+  // Backlog till (product owner 2026-11-23: the DMS dump is up to a certain date): the last day each dump holds.
+  const bookingsTill = tillText(dms.dealers.map((d) => d.bookingsTill ?? d.bookingDumpDate));
+  const deliveriesTill = tillText(dms.dealers.map((d) => d.deliveriesTill ?? d.deliveryDumpDate));
+  const oneDate = (key: 'bookingsTill' | 'deliveriesTill') => new Set(rows.map((p) => p[key] ?? null)).size <= 1;
+  const perPerson = !oneDate('bookingsTill') || !oneDate('deliveriesTill');
 
   if (!dms.month) {
     return <SectionCard><p className="p2w-muted">No DMS dump has been uploaded yet for {own ? 'your dealership' : 'these dealerships'}.</p></SectionCard>;
@@ -64,6 +78,13 @@ export default function DmsBacklogView({ dms, own, onMonth }: { dms: DmsBacklog;
       <div className="p2w-card__title p2mw-title-row">
         <div>
           <h3>{own ? 'Me against the DMS' : 'Each PC against the DMS'}, {monthLabel(dms.month)}</h3>
+          <p className="p2pf-till">
+            <strong>Backlog till</strong>{' '}
+            {bookingsTill ? <>bookings <strong>{bookingsTill}</strong></> : 'no booking dump'}
+            {' · '}
+            {deliveriesTill ? <>deliveries <strong>{deliveriesTill}</strong></> : 'no delivery dump'}
+            <span className="p2w-muted"> (the last day the DMS dump holds)</span>
+          </p>
           <p className="p2w-muted">
             What the DMS says was booked and delivered at {own ? 'my' : 'each PC’s'} locations this month, how much of it is in Verigence, and
             what is still pending. A location with more than one PC shows the same count for every PC tagged to it.
@@ -87,15 +108,21 @@ export default function DmsBacklogView({ dms, own, onMonth }: { dms: DmsBacklog;
             <thead>
               <tr>
                 <th scope="col" rowSpan={2}>PC</th>
-                {showB ? <th scope="colgroup" colSpan={5} className="p2pf-group">Bookings</th> : null}
-                {showD ? <th scope="colgroup" colSpan={6} className="p2pf-group">Deliveries</th> : null}
+                {showB ? <th scope="colgroup" colSpan={5} className="p2pf-group">Bookings{bookingsTill ? `, till ${bookingsTill}` : ''}</th> : null}
+                {showD ? <th scope="colgroup" colSpan={6} className="p2pf-group">Deliveries{deliveriesTill ? `, till ${deliveriesTill}` : ''}</th> : null}
               </tr>
               <tr>{showB ? HEADS('booking') : null}{showD ? HEADS('delivery') : null}</tr>
             </thead>
             <tbody>
               {rows.map((p) => (
                 <tr key={p.actorId}>
-                  <th scope="row">{p.name || 'Name not recorded'}{p.locations.length ? <div className="p2w-muted p2pf-sub">{p.locations.join(', ')}</div> : null}</th>
+                  <th scope="row">{p.name || 'Name not recorded'}{p.locations.length ? <div className="p2w-muted p2pf-sub">{p.locations.join(', ')}</div> : null}
+                    {perPerson ? (
+                      <div className="p2w-muted p2pf-sub">
+                        till {p.bookingsTill ? shortDate(p.bookingsTill) : '—'} (bookings) · {p.deliveriesTill ? shortDate(p.deliveriesTill) : '—'} (deliveries)
+                      </div>
+                    ) : null}
+                  </th>
                   {showB ? <Cells f={p} kind="booking" /> : null}
                   {showD ? <Cells f={p} kind="delivery" /> : null}
                 </tr>
@@ -106,7 +133,7 @@ export default function DmsBacklogView({ dms, own, onMonth }: { dms: DmsBacklog;
       ) : <p className="p2w-muted">No PC is mapped to a DMS location in this view.</p>}
 
       <p className="p2w-muted p2pf-planned">
-        DMS dumps used: {dms.dealers.map((d) => `${d.dealerName ?? 'Dealership'} — bookings ${d.bookingDumpDate ? `to ${shortDate(d.bookingDumpDate)}` : 'none'}, deliveries ${d.deliveryDumpDate ? `to ${shortDate(d.deliveryDumpDate)}` : 'none'}`).join('; ')}.
+        DMS dumps used: {dms.dealers.map((d) => `${d.dealerName ?? 'Dealership'} \u2014 bookings ${dumpText(d.bookingDumpDate, d.bookingsTill)}, deliveries ${dumpText(d.deliveryDumpDate, d.deliveriesTill)}`).join('; ')}.
       </p>
       {!own && dms.notMapped.length ? (
         <p className="p2w-muted">No DMS figures (no outlet mapped): {dms.notMapped.map((p) => p.name || p.actorId).join(', ')}.</p>

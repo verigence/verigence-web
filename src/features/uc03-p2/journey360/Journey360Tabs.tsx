@@ -441,7 +441,8 @@ const UNIT_LABELS: Array<[string, string]> = [
   ['allocated_at_utc', 'Allocated'],
 ];
 const BOOKING_LABELS: Array<[Exclude<keyof P2Vehicle360['booking'], 'enquiryNumberFromDms'>, string]> = [
-  ['bookingDate', 'Booking date'], ['enquiryNumber', 'Enquiry number'], ['salesConsultant', 'Sales consultant'],
+  ['bookingDate', 'Booking date'], ['enquiryNumber', 'Enquiry number'], ['dmsPin', 'DMS PIN'],
+  ['salesConsultant', 'Sales consultant'],
   ['dealerBranch', 'Dealer branch'],
   ['dealType', 'Deal type'], ['dealSource', 'Deal source'], ['leadSource', 'Lead source'], ['expectedDelivery', 'Expected delivery'],
 ];

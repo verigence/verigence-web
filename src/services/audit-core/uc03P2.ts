@@ -1407,6 +1407,8 @@ export type P2Vehicle360 = {
   booking: { bookingReference?: string | null; bookingDate?: string | null; salesConsultant?: string | null;
     /** The booking's enquiry number; enquiryNumberFromDms when only the DMS booking dump gives it. */
     enquiryNumber?: string | null; enquiryNumberFromDms?: boolean;
+    /** The customer's mailing PIN in the DMS booking dump; the KYC's PIN is kept apart. */
+    dmsPin?: string | null;
     dealerBranch?: string | null; dealType?: string | null; dealSource?: string | null; leadSource?: string | null;
     expectedDelivery?: string | null };
   delivery: P2Record | null;

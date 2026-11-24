@@ -9,18 +9,13 @@ import '../styles/uc03-p2-gate-pass.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import DutiesSection from '../features/duties/DutiesSection';
-import DailyWorkReport from '../features/uc03-p2/daily/DailyWorkReport';
 import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
-import PcDayView from '../features/task-manager/PcDayView';
 import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
 import DmsDumpCalendarTab from '../features/uc03-p2/tracker/DmsDumpCalendarTab';
 import JourneyBreakdownTab from '../features/uc03-p2/tracker/JourneyBreakdownTab';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import {
   dailyProcessingDay,
-  hasNextPeriod,
-  shiftPeriod,
-  trackerLabel,
   trackerTabFromSearch,
   trackerTabHref,
   trackerTabsFor,
@@ -29,44 +24,18 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-/** The "Work done and files closed" tab: one day, the day picked here (and kept in the address). */
-function DailyWorkTab({ tenantId, accessToken, today, timezone }: {
-  tenantId: string; accessToken: string; today: string; timezone?: string | null;
-}) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const day = dailyProcessingDay(searchParams, today);
-  const go = (next: string) => setSearchParams(new URLSearchParams(trackerTabHref('daily-processing', next).split('?')[1]));
-  return (
-    <>
-      <div className="p2mw-controls">
-        <span className="p2mw-range">
-          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Previous day"
-            onClick={() => go(shiftPeriod('DAY', day, -1))}>‹</button>
-          <label>Day <input type="date" value={day} max={today} onChange={(e) => e.target.value && go(e.target.value)} /></label>
-          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Next day"
-            disabled={!hasNextPeriod('DAY', day, today)} onClick={() => go(shiftPeriod('DAY', day, 1))}>›</button>
-          <strong>{trackerLabel('DAY', day)}</strong>
-          {day !== today ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => go(today)}>Today</button> : null}
-        </span>
-      </div>
-      <DailyWorkReport tenantId={tenantId} accessToken={accessToken} day={day} fallbackTimezone={timezone} />
-    </>
-  );
-}
-
 /**
- * Project Tracker: the one place for a Team Lead, PM or Executive (2026-11-09). It opens on the PCs'
- * day: every PC's day in one window (product owner 2026-11-23). Without the
- * duplicates (product owner 2026-11-13: "Project Tracker has so much of duplicate information"):
- * - Performance, as it is: pending work, the team and outlets, efficiency, uploads with failures
- *   and duplicates, tasks and duties, over a date range;
- * - Work done and files closed: the "Work done on tasks" and "Delivery files closed" of a day;
- * - Gate Register: outlet-wise daily status or the calendar, and the tasks raised from it (2026-11-14).
- * - Daily duties: the PCs' duties day by day, with the duty list and its switch (2026-11-18).
- * Dropped as repeats of Performance: the tracker's figures (gate pass, files, Drive, reviews, failed
- * uploads, tasks, recurring tasks), the Daily processing task status and uploads by PC, and the
- * all-outlets gate pass table. The tab is in the address; old addresses (?tab=daily-processing&day=,
- * ?tab=gate-pass, the tracker's ?period=) still open a tab.
+ * Project Tracker: the one place for a Team Lead, PM or Executive (2026-11-09). It opens on
+ * Performance's Team and outlets, today (product owner 2026-11-24: "team and outlet is better
+ * view"); a PC's row opens their day -- Journeys, files, duties, gate register, pending work, the
+ * tasks worked and delivery files closed -- in a side panel. That folded in the PCs' day and the
+ * Work done and files closed tabs, which repeated it. The other tabs:
+ * - Journeys: the Dealership-wise / Outlet-wise / PC-wise panels (2026-11-13);
+ * - Gate Register: outlet-wise daily status or the calendar, and the tasks raised from it (2026-11-14);
+ * - Daily duties: what was missed or not received, the full board, and the duty list and its switch;
+ * - DMS dumps: the dealers' daily dumps like the gate register, for the Team Lead (2026-11-13).
+ * The tab is in the address; old addresses (?tab=pc-day, ?tab=daily-processing&day=, the tracker's
+ * ?period=) open Performance, on the day asked for.
  */
 export default function P2ProjectTrackerPage() {
   const project = useProjectContextStore((s) => s.selectedProject);
@@ -78,16 +47,16 @@ export default function P2ProjectTrackerPage() {
   const today = istDate();
   const tabs = trackerTabsFor(role);
   const asked = trackerTabFromSearch(searchParams);
-  const tab: TrackerTab = tabs.some((t) => t.key === asked) ? asked : 'pc-day';
+  const tab: TrackerTab = tabs.some((t) => t.key === asked) ? asked : 'performance';
+  // An old Work done address's ?day= (or ?date=) opens Team and outlets on that day.
+  const day = dailyProcessingDay(searchParams, today);
 
   // A PC or Reviewer has their own figures and performance on My Tracker.
   if (role === 'PC' || role === 'REVIEWER') return <Navigate to="/p2/tracker?tab=performance" replace />;
 
   const selectTab = (next: TrackerTab) => {
     if (next === tab) return;
-    // The day carries over to the "Work done and files closed" tab.
-    const day = tab === 'daily-processing' ? dailyProcessingDay(searchParams, today) : undefined;
-    const href = trackerTabHref(next, day);
+    const href = trackerTabHref(next);
     setSearchParams(new URLSearchParams(href.includes('?') ? href.split('?')[1] : ''));
   };
 
@@ -96,7 +65,7 @@ export default function P2ProjectTrackerPage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Project Tracker"
-        description="What every PC did on a day, in one window; how the team is doing over a date range; the work done on tasks and the delivery files closed on a day; and deliveries on the gate register against delivery files uploaded."
+        description="Who is doing what at your outlets: open a PC for their day. Journeys, the gate register, daily duties and the DMS dumps on their own tabs."
       />
       {team ? <div className="p2pt-tabs" role="tablist" aria-label="Project Tracker">
         {tabs.map((t) => (
@@ -122,13 +91,13 @@ export default function P2ProjectTrackerPage() {
         <div className="p2w-alert p2w-alert--error" role="alert">Select a project to continue.</div>
       ) : (
         <div role="tabpanel" id={`p2pt-panel-${tab}`} aria-labelledby={`p2pt-tab-${tab}`} className="screen-stack">
-          {tab === 'pc-day' ? <PcDayView mode="project" tenantId={tenantId} accessToken={accessToken} /> : null}
           {tab === 'journeys' ? <JourneyBreakdownTab tenantId={tenantId} accessToken={accessToken}
             listPath={role === 'TL' ? '/dashboard' : '/p2/bookings'} /> : null}
           {tab === 'dms-dumps' ? <DmsDumpCalendarTab tenantId={tenantId} accessToken={accessToken} /> : null}
-          {tab === 'performance' ? <PerformanceView tenantId={tenantId} accessToken={accessToken} today={today} /> : null}
-          {tab === 'daily-processing'
-            ? <DailyWorkTab tenantId={tenantId} accessToken={accessToken} today={today} timezone={project?.timezoneName} /> : null}
+          {tab === 'performance' ? (
+            <PerformanceView tenantId={tenantId} accessToken={accessToken} today={today}
+              initialView="team" initialFrom={day} initialTo={day} pcDays />
+          ) : null}
           {tab === 'gate-pass' ? <SupervisorGatePass tenantId={tenantId} accessToken={accessToken} /> : null}
           {tab === 'duties' ? <DutiesSection mode="project" tenantId={tenantId} accessToken={accessToken} /> : null}
         </div>

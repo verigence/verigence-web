@@ -200,13 +200,18 @@ function Cell({ column, value, max }: { column: DashColumn; value: number | null
 
 const ROWS_SHOWN = 12;
 
-function Scorecard({ card }: { card: DashCard }) {
+/** A row picked from a scorecard (the PCs card of Team and outlets opens the PC's day, 2026-11-24). */
+export type PickRow = (row: DashCard['rows'][number], cardKey: string) => void;
+
+function Scorecard({ card, onPick }: { card: DashCard; onPick?: PickRow }) {
   const [sort, setSort] = useState<{ key: string; descending: boolean }>({ key: card.sort, descending: true });
   const [all, setAll] = useState(false);
   const rows = useMemo(() => sortRows(card.rows, sort.key, sort.descending), [card.rows, sort]);
   const totals = useMemo(() => cardTotals(card), [card]);
   const max = useMemo(() => Object.fromEntries(card.columns.map((c) => [c.key, Math.max(0, ...card.rows.map((r) => r.values[c.key] ?? 0))])), [card]);
   const shown = all ? rows : rows.slice(0, ROWS_SHOWN);
+  // A day-by-day line needs two days at least: on a single day the column would be empty.
+  const spark = card.spark && card.rows.some((r) => (r.spark?.length ?? 0) > 1) ? card.spark : undefined;
   const head = (key: string, label: string) => (
     <th key={key} scope="col" aria-sort={sort.key === key ? (sort.descending ? 'descending' : 'ascending') : undefined}>
       <button type="button" className="p2db-sort" onClick={() => setSort({ key, descending: sort.key === key ? !sort.descending : key !== 'name' })}>
@@ -221,18 +226,21 @@ function Scorecard({ card }: { card: DashCard }) {
           <thead>
             <tr>
               {head('name', card.title)}
-              {card.spark ? <th scope="col" className="p2db-table__spark">{card.spark}</th> : null}
+              {spark ? <th scope="col" className="p2db-table__spark">{spark}</th> : null}
               {card.columns.map((c) => head(c.key, c.label))}
             </tr>
           </thead>
           <tbody>
             {shown.map((r) => (
-              <tr key={r.id}>
-                <th scope="row">{r.name}{r.sub ? <span className="p2db-sub">{r.sub}</span> : null}</th>
-                {card.spark ? (
+              <tr key={r.id} className={onPick ? 'p2db-row--pick' : undefined} onClick={onPick ? () => onPick(r, card.key) : undefined}>
+                <th scope="row">
+                  {onPick ? <button type="button" className="p2db-pick" onClick={(e) => { e.stopPropagation(); onPick(r, card.key); }}>{r.name}</button> : r.name}
+                  {r.sub ? <span className="p2db-sub">{r.sub}</span> : null}
+                </th>
+                {spark ? (
                   <td className="p2db-table__spark">
                     {r.spark?.some((v) => v > 0) ? (
-                      <svg viewBox="0 0 96 22" width="96" height="22" role="img" aria-label={`${card.spark}: ${r.spark.map(count).join(', ')}`}>
+                      <svg viewBox="0 0 96 22" width="96" height="22" role="img" aria-label={`${spark}: ${r.spark.map(count).join(', ')}`}>
                         <polyline points={sparkPoints(r.spark, 96, 22)} fill="none" stroke={SERIES[0]} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                       </svg>
                     ) : <span className="p2db-zero">no activity</span>}
@@ -246,7 +254,7 @@ function Scorecard({ card }: { card: DashCard }) {
             <tfoot>
               <tr>
                 <th scope="row">All {card.rows.length}</th>
-                {card.spark ? <td /> : null}
+                {spark ? <td /> : null}
                 {card.columns.map((c) => <td key={c.key}>{totals[c.key] == null ? '' : count(totals[c.key]!)}</td>)}
               </tr>
             </tfoot>
@@ -262,13 +270,15 @@ function Scorecard({ card }: { card: DashCard }) {
   );
 }
 
-function Scorecards({ cards, title, about, children }: { cards: DashCard[]; title?: string; about?: string; children?: ReactNode }) {
+function Scorecards({ cards, title, about, children, onPick, pickable }: {
+  cards: DashCard[]; title?: string; about?: string; children?: ReactNode; onPick?: PickRow; pickable?: string[];
+}) {
   const [picked, setPicked] = useState(cards[0].key);
   const card = cards.find((c) => c.key === picked) ?? cards[0];
   return (
     <Panel title={title ?? card.title} about={about}
       action={cards.length > 1 ? <Segment label="Scorecard of" value={card.key} options={cards.map((c) => ({ key: c.key, label: c.title }))} onChange={setPicked} /> : undefined}>
-      <Scorecard key={card.key} card={card} />
+      <Scorecard key={card.key} card={card} onPick={onPick && pickable?.includes(card.key) ? onPick : undefined} />
       {children}
     </Panel>
   );
@@ -445,7 +455,9 @@ function Peers({ board }: { board: Board }) {
  * duplicates, tasks and duties. The server sends only the blocks a SuperAdmin has left on for the
  * role; a panel fills the room a hidden one leaves. At most one chart canvas on a tab.
  */
-export default function Dashboard({ board, view, periods, asOf }: { board: Board; view: View; periods: Period[]; asOf: string }) {
+export default function Dashboard({ board, view, periods, asOf, onPick }: {
+  board: Board; view: View; periods: Period[]; asOf: string; onPick?: PickRow;
+}) {
   const option = useMemo(() => (view === 'overview' && board.trend ? trendOption(board.trend.series, periods) : null), [view, board.trend, periods]);
   const own = board.view !== 'TEAM';
   const mine = board.view === 'REVIEWER' ? ' at my outlets' : '';
@@ -485,7 +497,8 @@ export default function Dashboard({ board, view, periods, asOf }: { board: Board
     body = (
       <div className="p2db-row">
         <Scorecards cards={board.scorecards} title={own ? undefined : 'Who is doing what'}
-          about={own ? undefined : `${board.period}. Work done in the period beside what is waiting now. Click a heading to sort.`} />
+          onPick={own ? undefined : onPick} pickable={['pcs']}
+          about={own ? undefined : `${board.period}. Work done in the period beside what is waiting now. Click a heading to sort${onPick ? ', a PC for their day' : ''}.`} />
       </div>
     );
   } else if (view === 'efficiency' && board.efficiency) {

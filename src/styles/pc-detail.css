@@ -1,0 +1,125 @@
+/* A PC's day: a side panel opened from their row in Team and outlets (2026-11-24).
+   IBM Carbon side panel: 640px from the right, 16px grid, 14px body; the brand navy and teal,
+   no green (product owner 2026-11-02). Full width on a phone. */
+.pcx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(22, 22, 22, 0.5);
+  display: flex;
+  justify-content: flex-end;
+}
+.pcx-panel {
+  width: min(640px, 100vw);
+  height: 100%;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.2);
+  color: #161616;
+  font-size: 14px;
+  line-height: 1.43;
+}
+.pcx-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 16px 8px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.pcx-head h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; color: #003a82; }
+.pcx-head p { margin: 2px 0 0; color: #525252; font-size: 12px; line-height: 16px; }
+.pcx-close {
+  width: 40px; height: 40px; flex: none;
+  border: 0; background: transparent; font-size: 24px; line-height: 1; color: #161616; cursor: pointer;
+}
+.pcx-close:hover { background: #e8e8e8; }
+.pcx-close:focus-visible, .pcx-step:focus-visible { outline: 2px solid #003a82; outline-offset: -2px; }
+.pcx-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f4f4f4;
+}
+.pcx-day input { height: 32px; padding: 0 8px; border: 0; border-bottom: 1px solid #8d8d8d; background: #ffffff; font: inherit; }
+.pcx-day strong { margin-left: 8px; font-weight: 600; }
+.pcx-step {
+  width: 32px; height: 32px; border: 0; background: transparent; font-size: 18px; cursor: pointer; color: #003a82;
+}
+.pcx-step:hover:not(:disabled) { background: #e8e8e8; }
+.pcx-step:disabled { color: #c6c6c6; cursor: not-allowed; }
+.pcx-body { flex: 1; overflow-y: auto; padding: 8px 24px 32px; }
+.pcx-section { padding: 16px 0; border-bottom: 1px solid #e0e0e0; }
+.pcx-section:last-child { border-bottom: 0; }
+.pcx-section h3 { margin: 0 0 12px; font-size: 14px; line-height: 18px; font-weight: 600; color: #161616; }
+.pcx-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: #e0e0e0;
+  border: 1px solid #e0e0e0;
+}
+.pcx-stat { background: #ffffff; padding: 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pcx-stat__label { font-size: 12px; line-height: 16px; color: #525252; min-height: 32px; }  /* two lines: values line up */
+.pcx-stat__value { font-size: 20px; line-height: 28px; color: #003a82; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcx-stat--warn .pcx-stat__value { color: #8a5300; }
+.pcx-stat--bad { background: #fff1f1; }
+.pcx-stat--bad .pcx-stat__value { color: #a2191f; }
+.pcx-note { margin: 8px 0 0; font-size: 12px; line-height: 16px; color: #525252; }
+.pcx-muted { color: #6f6f6f; margin: 0; }
+.pcx-error { margin: 0; color: #a2191f; }
+.pcx-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid #e0e0e0; }
+.pcx-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+.pcx-list li > span:first-child { min-width: 0; }
+.pcx-list small, .pcx-table small { display: block; color: #6f6f6f; font-size: 12px; line-height: 16px; }
+.pcx-tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pcx-tag--ok { background: #e6f7f6; color: #00706b; }
+.pcx-tag--info { background: #edf3fb; color: #003a82; }
+.pcx-tag--warn { background: #fcf4d6; color: #8a5300; }
+.pcx-tag--bad { background: #ffd7d9; color: #a2191f; }
+.pcx-tag--neutral { background: #e0e0e0; color: #393939; }
+.pcx-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.pcx-table th {
+  text-align: left; font-size: 12px; font-weight: 600; color: #525252;
+  padding: 8px 8px 8px 0; border-bottom: 1px solid #c6c6c6; background: transparent;
+}
+.pcx-table td { padding: 8px 8px 8px 0; border-bottom: 1px solid #e0e0e0; vertical-align: top; overflow-wrap: anywhere; }
+.pcx-table th:nth-child(1), .pcx-table td:nth-child(1) { width: 46%; }
+.pcx-table th:nth-child(3), .pcx-table td:nth-child(3) { width: 22%; }
+.pcx-panel a { color: #003a82; }
+
+/* The PC's row in Team and outlets opens the panel. */
+.p2db-table .p2db-pick {
+  border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: #003a82; cursor: pointer; text-align: left;
+}
+.p2db-table .p2db-pick:hover { text-decoration: underline; }
+.p2db-table tr.p2db-row--pick { cursor: pointer; }
+.p2db-table tr.p2db-row--pick:hover > * { background: #edf3fb; }
+
+@media (max-width: 671px) {
+  .pcx-panel { width: 100vw; }
+  .pcx-head { padding: 12px 8px 8px 16px; }
+  .pcx-day, .pcx-body { padding-left: 16px; padding-right: 16px; }
+  .pcx-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

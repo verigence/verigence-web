@@ -231,13 +231,11 @@ export function monthLabel(month: string): string {
  *  dumps: the dealers' daily dumps like the gate register, the Team Lead's only (both 2026-11-13). */
 export type TrackerTab = 'pc-day' | 'performance' | 'journeys' | 'daily-processing' | 'gate-pass' | 'duties' | 'dms-dumps';
 export const TRACKER_TABS: Array<{ key: TrackerTab; label: string; roles?: string[] }> = [
-  // Every PC's day in one window, the Tracker's landing view (product owner 2026-11-23: "a single
-  // window where i can see what all my PC are doing in a day").
-  { key: 'pc-day', label: "PCs' day" },
-  // How the team and each person is doing against their usual and their peers (2026-11-13).
+  // How the team and each person is doing (2026-11-13); the Tracker opens on its Team and outlets,
+  // today (product owner 2026-11-24: "team and outlet is better view"). The PCs' day and Work done
+  // and files closed tabs are folded into it: a PC's row opens their day.
   { key: 'performance', label: 'Performance' },
   { key: 'journeys', label: 'Journeys' },
-  { key: 'daily-processing', label: 'Work done and files closed' },
   { key: 'gate-pass', label: 'Gate Register' },
   // The PCs' daily duties, day by day, and the duty list with its switch (product owner 2026-11-18).
   { key: 'duties', label: 'Daily duties' },
@@ -256,10 +254,9 @@ export const PROJECT_TRACKER_PATH = '/p2/project-tracker';
 export function trackerTabFromSearch(search: URLSearchParams): TrackerTab {
   const raw = search.get('tab');
   if (TRACKER_TABS.some((t) => t.key === raw)) return raw as TrackerTab;
-  // The old tracker's addresses (?tab=tracker, ?period=, ?view=) keep opening Performance; the page
-  // itself opens the PCs' day (2026-11-23).
-  if (raw === 'tracker' || search.has('period') || search.has('view')) return 'performance';
-  return 'pc-day';
+  // Everything else -- the page itself, the old tracker's addresses, and the PCs' day and Work done
+  // tabs folded in on 2026-11-24 -- opens Performance.
+  return 'performance';
 }
 
 /** The day the "Work done and files closed" tab shows: ?day=, else an old tracker address's ?date=,
@@ -275,7 +272,7 @@ export function dailyProcessingDay(search: URLSearchParams, today: string = istD
 /** The address of a tab: /p2/project-tracker?tab=daily-processing&day=2026-11-08; Performance is the
  *  page itself. Old addresses (/p2/reports/daily, the supervisor's /p2/gate-pass) open these. */
 export function trackerTabHref(tab: TrackerTab, day?: string): string {
-  if (tab === 'pc-day') return PROJECT_TRACKER_PATH;
+  if (tab === 'performance') return PROJECT_TRACKER_PATH;
   const params = new URLSearchParams({ tab });
   if (tab === 'daily-processing' && day && /^\d{4}-\d{2}-\d{2}$/.test(day)) params.set('day', day);
   return `${PROJECT_TRACKER_PATH}?${params.toString()}`;

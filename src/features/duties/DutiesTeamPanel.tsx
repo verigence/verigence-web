@@ -77,6 +77,54 @@ function DayTable({ date, outlets, duties }: {
   );
 }
 
+type MissedRow = { cell: TeamDutyCell; outlet: TeamDutyOutlet; date: string };
+
+/** The duty items missed (carry days over, not done) or not received in the range: each item once,
+ *  as it stood on the last day it was on the board. */
+export function missedItems(days: Array<{ date: string; outlets: TeamDutyOutlet[] }>): MissedRow[] {
+  const latest = new Map<string, MissedRow>();
+  for (const day of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
+    for (const outlet of day.outlets) {
+      for (const cell of outlet.items) latest.set(cell.itemId, { cell, outlet, date: day.date });
+    }
+  }
+  return [...latest.values()]
+    .filter((r) => r.cell.state === 'INCOMPLETE' || r.cell.state === 'NOT_RECEIVED')
+    .sort((a, b) => a.outlet.outletName.localeCompare(b.outlet.outletName) || a.cell.forDate.localeCompare(b.cell.forDate)
+      || a.cell.title.localeCompare(b.cell.title));
+}
+
+function MissedTable({ rows }: { rows: MissedRow[] }) {
+  return (
+    <div className="dty-table-wrap">
+      <table className="dty-table dty-missed">
+        <thead>
+          <tr>
+            <th scope="col">Outlet</th><th scope="col">Duty</th><th scope="col">For</th>
+            <th scope="col">What happened</th><th scope="col">Reason given</th><th scope="col">PCs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ cell, outlet }) => (
+            <tr key={cell.itemId}>
+              <td><strong>{outlet.outletName}</strong><small>{outlet.dealerName}</small></td>
+              <td data-label="Duty">{cell.title}</td>
+              <td data-label="For" className="dty-nowrap">{dayLabel(cell.forDate)}</td>
+              <td data-label="What happened">
+                <span className={`dty-tag ${STATE_TAG[cell.state]}`}>
+                  {cell.state === 'INCOMPLETE' ? 'Missed' : 'Not received from the dealership'}
+                </span>
+              </td>
+              <td data-label="Reason given">{teamCellDetail(cell) || <small>None given</small>}</td>
+              <td data-label="PCs">{outlet.pcs.map((pc) => pc.name).join(', ') || <small>No PC mapped</small>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
  * The team's daily duties, day by day (Audit Core GET .../duties/team): every outlet and PC for a
  * Team Lead's outlets, or the whole Project for a PM, Executive or SuperAdmin. Reasons are shown,
@@ -84,7 +132,10 @@ function DayTable({ date, outlets, duties }: {
  */
 export default function DutiesTeamPanel({ mode, tenantId, accessToken }: { mode: DutiesMode; tenantId: string; accessToken?: string }) {
   const today = istToday();
-  const [range, setRange] = useState({ from: today, to: today });
+  // What was missed or not received, over the last 7 days, unless the full board is asked for
+  // (product owner 2026-11-24: the board of every open item read as noise).
+  const [show, setShow] = useState<'missed' | 'all'>('missed');
+  const [range, setRange] = useState({ from: addDays(today, -6), to: today });
   const team = useQuery({
     queryKey: dutiesKeys.team(mode, tenantId, range.from, range.to),
     queryFn: () => getTeamDuties(mode, tenantId, range, accessToken),
@@ -132,16 +183,36 @@ export default function DutiesTeamPanel({ mode, tenantId, accessToken }: { mode:
             ))}
           </div>
 
-          {(data.days ?? []).every((d) => d.outlets.length === 0) ? (
+          <div className="dty-row__actions" role="group" aria-label="Shown">
+            {([['missed', 'Missed and not received'], ['all', 'Every duty, day by day']] as const).map(([key, label]) => (
+              <button key={key} type="button" aria-pressed={show === key}
+                className={`uc01-admin-button${show === key ? ' uc01-admin-button--primary' : ''}`} onClick={() => setShow(key)}>{label}</button>
+            ))}
+          </div>
+
+          {show === 'missed' ? (() => {
+            const rows = missedItems(data.days ?? []);
+            return (
+              <section className="dty-day">
+                <h3 className="dty-day__name">
+                  {rows.length ? `${rows.length} missed or not received` : 'Nothing missed'}, {single ? dayLabel(range.from) : `${dayLabel(range.from)} to ${dayLabel(range.to)}`}
+                </h3>
+                <p className="dty-hint">A duty is missed when its carry days are over and it was not done. Duties still within their carry days are on the full board.</p>
+                {rows.length ? <MissedTable rows={rows} /> : null}
+              </section>
+            );
+          })() : null}
+
+          {show === 'all' && (data.days ?? []).every((d) => d.outlets.length === 0) ? (
             <div className="uc01-admin-state">No duties on the list for {single ? dayLabel(range.from) : 'these days'}. Check the duty list and that PCs are mapped to outlets.</div>
           ) : null}
 
-          {(data.days ?? []).filter((d) => d.outlets.length > 0).map((day) => (
+          {show === 'all' ? (data.days ?? []).filter((d) => d.outlets.length > 0).map((day) => (
             <section key={day.date} className="dty-day">
               <h3 className="dty-day__name">{dayLabel(day.date)}{day.date === data.today ? ' · today' : ''}{day.workingDay ? '' : ' · not a working day'}</h3>
               <DayTable date={day.date} outlets={day.outlets} duties={data.byDuty ?? []} />
             </section>
-          ))}
+          )) : null}
 
           {!single && (data.byDuty?.length ?? 0) > 0 ? (
             <section className="dty-day">

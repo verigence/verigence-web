@@ -109,6 +109,7 @@
 .p2db-table th[scope="row"] { background: var(--db-layer); font-weight: 600; min-width: 170px; white-space: normal; }
 .p2db-table tbody tr:hover > * { background: #edf5ff; }
 .p2db-table tfoot th, .p2db-table tfoot td { background: var(--db-field); font-weight: 600; border-bottom: 0; }
+.p2db-table tfoot th[scope="row"] { background: var(--db-field); }  /* the totals row, shaded across (2026-11-24) */
 .p2db-table__spark { text-align: left !important; min-width: 112px; }
 .p2db-table__spark svg { display: block; }
 .p2db-table__spark .p2db-zero { font-size: 12px; }

@@ -14,8 +14,8 @@
 .dty-reason { flex-direction: column; gap: 8px; }
 .dty-list > li:last-child { border-bottom: 0; }
 .dty-check { flex: none; width: 18px; height: 18px; margin-top: 1px; border: 1.5px solid #8a96a3; border-radius: 3px; display: grid; place-items: center; font-size: 12px; font-weight: 900; line-height: 1; color: #fff; background: #fff; }
-.dty-row--done .dty-check { background: #198038; border-color: #198038; }
-.dty-row--on-track .dty-check { background: #fff; border-color: #198038; color: #198038; }
+.dty-row--done .dty-check { background: #00706b; border-color: #00706b; }
+.dty-row--on-track .dty-check { background: #fff; border-color: #00706b; color: #00706b; }
 .dty-row--not-received .dty-check { border-color: #b28600; background: #fcf4d6; }
 .dty-row--done .dty-row__head strong { color: #52606d; font-weight: 650; }
 .dty-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -25,7 +25,7 @@
 .dty-row__text--strong { color: #24303c; font-weight: 650; }
 .dty-row__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .dty-tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: #edf1f5; color: #52606d; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.dty-tag--ok { background: #defbe6; color: #0e6027; }
+.dty-tag--ok { background: #e6f7f6; color: #00706b; }
 .dty-tag--warn { background: #fcf4d6; color: #684e00; }
 .dty-tag--bad { background: #fff1f1; color: #a2191f; }
 .dty-tag--info { background: #edf5ff; color: #0043ce; }
@@ -91,3 +91,14 @@
   .dty-table td { border: 0; padding: 6px 0; }
   .dty-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 3px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #66717d; }
 }
+
+/* Missed and not received, or every duty day by day (2026-11-24). */
+.dty-hint { margin: 0; font-size: 12px; color: #66717d; }
+.dty-nowrap { white-space: nowrap; }
+.dty-missed th { min-width: 0; }
+.dty-missed td { font-size: 13px; }
+.dty-missed th:nth-child(1) { width: 22%; }
+.dty-missed th:nth-child(2) { width: 18%; }
+.dty-missed th:nth-child(3) { width: 9%; }
+.dty-missed th:nth-child(4) { width: 14%; }
+.dty-missed th:nth-child(6) { width: 15%; }

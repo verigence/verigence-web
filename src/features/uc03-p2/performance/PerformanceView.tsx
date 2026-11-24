@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
+import PcDetailPanel from './PcDetailPanel';
 import Dashboard, { viewHas, viewLabel, type View } from './Dashboard';
 import DmsBacklogView from './DmsBacklogView';
 import FailedUploads from './FailedUploads';
@@ -761,11 +762,17 @@ const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStri
  * each tab the detail by outlet and person, read only when it is opened. A PC or Reviewer sees
  * their own. A SuperAdmin chooses the blocks and the detail each role sees.
  */
-export default function PerformanceView({ tenantId, accessToken, today, initialView = 'overview', initialDetail = null }: {
+export default function PerformanceView({ tenantId, accessToken, today, initialView = 'overview', initialDetail = null,
+  initialFrom, initialTo, pcDays = false }: {
   tenantId: string; accessToken: string | undefined; today: string; initialView?: View; initialDetail?: Tab | null;
+  /** The range it opens on: the last 7 days unless given. */
+  initialFrom?: string; initialTo?: string;
+  /** A PC's row in Team and outlets opens their day (the Project Tracker, 2026-11-24). */
+  pcDays?: boolean;
 }) {
-  const [from, setFrom] = useState(addDays(today, -6));
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(initialFrom ?? addDays(today, -6));
+  const [to, setTo] = useState(initialTo ?? today);
+  const [picked, setPicked] = useState<{ id: string; name: string; sub?: string } | null>(null);
   const [modePicked, setModePicked] = useState<Mode | null>(null);
   const [view, setView] = useState<View>(initialView);
   const [detail, setDetail] = useState<Tab | null>(initialDetail ?? VIEWS.find((v) => v.key === initialView)?.open ?? null);
@@ -842,7 +849,14 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
         </SectionCard>
       ) : null}
       {dashboard.data && !views.length ? <SectionCard><p className="p2w-muted">Nothing is switched on for your role here.</p></SectionCard> : null}
-      {board && current ? <Dashboard board={board} view={current.key} periods={periods} asOf={dashboard.data!.asOfUtc} /> : null}
+      {board && current ? (
+        <Dashboard board={board} view={current.key} periods={periods} asOf={dashboard.data!.asOfUtc}
+          onPick={pcDays && tenantId ? (row) => setPicked({ id: row.id, name: row.name, sub: row.sub ?? undefined }) : undefined} />
+      ) : null}
+      {picked && tenantId ? (
+        <PcDetailPanel tenantId={tenantId} accessToken={accessToken} actorId={picked.id} name={picked.name} sub={picked.sub}
+          initialDay={to} today={today} onClose={() => setPicked(null)} />
+      ) : null}
 
       {details.length ? (
         <div className="p2db-details" role="group" aria-label="More detail">

@@ -29,3 +29,24 @@ details.p2md-day > summary { cursor: pointer; min-height: 32px; display: flex; g
 .p2md-close { display: grid; gap: 8px; padding: 12px; border: 1px solid #b8dcda; border-left: 4px solid #00afa8; border-radius: 12px; background: #f3fbfb; }
 .p2md-close h4 { margin: 0; font-size: 1rem; color: #003a82; }
 .p2md-close p { margin: 2px 0 0; }
+/* Missing documents, two simple views (2026-11-24). */
+.p2md-table { width: 100%; }
+.p2md-table:not(.p2md-table--wide) { max-width: 760px; }
+.p2w .p2md-table.p2w-table :is(th, td) { vertical-align: middle; }
+.p2w .p2md-table .p2w-link { min-height: 0; padding: 0; }
+/* Each outlet's table has the same columns, so the outlets line up under one another. */
+.p2md-table--wide { table-layout: fixed; }
+.p2md-table--wide col.c-ref { width: 190px; }
+.p2md-table--wide col.c-customer { width: 220px; }
+.p2md-table--wide col.c-count { width: 80px; }
+.p2md-table--wide col.c-link { width: 90px; }
+.p2md-table .p2md-num { width: 1%; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.p2md-toggle { display: inline-flex; gap: 8px; align-items: center; min-height: 32px; padding: 0; border: 0; background: none;
+  color: #0f62fe; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.p2md-toggle:focus-visible { outline: 2px solid #0f62fe; outline-offset: 2px; }
+.p2md-table tr.is-open > td { background: #f4f7fb; }
+.p2md-table tr.p2md-sub > td { background: #fafbfc; color: #393939; font-size: .9rem; }
+.p2md-table tr.p2md-sub > td:first-child { padding-left: 34px; }
+.p2md-dealer { display: grid; gap: 8px; }
+.p2md-dealer > h3 { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; margin: 8px 0 0; font-size: 1rem; }
+details.p2md-day > summary { justify-content: space-between; }

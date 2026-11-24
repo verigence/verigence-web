@@ -5,6 +5,7 @@ import '../styles/uc03-p2-missing-documents.css';
 
 import PageHeader from '../components/PageHeader';
 import MissingDocumentsPanel from '../features/uc03-p2/missing/MissingDocumentsPanel';
+import MissingDocumentsReport from '../features/uc03-p2/missing/MissingDocumentsReport';
 import { periodStart } from '../services/audit-core/uc03MissingDocuments';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -33,7 +34,7 @@ export default function P2MissingDocumentsPage() {
         eyebrow="DealGuard"
         title="Missing documents"
         description={supervisor
-          ? 'Documents still missing on the journeys that have deliveries, by delivery day, across the Project.'
+          ? 'Documents still missing on the journeys that have deliveries, across the Project: by document, or by dealership and outlet.'
           : 'Documents still missing on the journeys of your outlets that have deliveries, by delivery day.'}
       />
       {!tenantId || !accessToken ? (
@@ -50,8 +51,12 @@ export default function P2MissingDocumentsPage() {
               ))}
             </div>
           </div>
-          <MissingDocumentsPanel tenantId={tenantId} accessToken={accessToken} from={periodStart(days)}
-            to={istDate()} supervisor={supervisor} />
+          {supervisor ? (
+            <MissingDocumentsReport tenantId={tenantId} accessToken={accessToken} from={periodStart(days)} to={istDate()} />
+          ) : (
+            <MissingDocumentsPanel tenantId={tenantId} accessToken={accessToken} from={periodStart(days)}
+              to={istDate()} supervisor={supervisor} />
+          )}
         </>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -34,6 +34,8 @@ import { istMonth, monthLabel, monthsUpTo } from '../services/audit-core/uc03Pro
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
+// A dump's rows by outcome, or MODEL: the matched rows whose model differs (product owner 2026-11-24).
+type RowView = DmsRowOutcome | 'MODEL' | '';
 type Pending = { id: string; file: File; dealerId: string; date: string; kind: DmsDumpKind | ''; state: 'ready' | 'uploading' | 'done' | 'failed'; message?: string };
 
 function when(value: string): string {
@@ -67,14 +69,15 @@ export default function P2DataUploadsPage() {
   const [dealerId, setDealerId] = useState('');
   const [pending, setPending] = useState<Pending[]>([]);
   const [over, setOver] = useState(false);
-  const [selected, setSelected] = useState<string | null>(() => {
-    // The uploader's model-differs alert links here with ?dumpId= (2026-11-21).
-    try { return new URLSearchParams(window.location.search).get('dumpId'); } catch { return null; }
-  });
-  const [outcome, setOutcome] = useState<DmsRowOutcome | ''>('MISSING');
+  // The uploader's model-differs alert links here with ?dumpId= (2026-11-21); the dump opens on
+  // its "Model differs" rows (product owner 2026-11-24), the alerts already out included.
+  const [params, setParams] = useSearchParams();
+  const linked = { dumpId: params.get('dumpId'), view: params.get('view') };
+  const [selected, setSelected] = useState<string | null>(linked.dumpId);
+  // MODEL: the matched rows whose model differs between the DMS and Verigence.
+  const [outcome, setOutcome] = useState<RowView>(linked.dumpId && (linked.view ?? 'model') === 'model' ? 'MODEL' : 'MISSING');
   const [error, setError] = useState<string | null>(null);
   // Bank statements sit beside the DMS dumps (product owner 14 Nov 2026): ?type=bank links there.
-  const [params, setParams] = useSearchParams();
   const typeParam = params.get('type');
   // The booking and delivery dumps apart (product owner 18 Nov 2026): ?type=delivery.
   // The monthly insurance dumps and the OD discount grid (product owner 16 Nov 2026): ?type=insurance.
@@ -152,7 +155,8 @@ export default function P2DataUploadsPage() {
       update(p.id, { state: 'uploading', message: undefined });
       try {
         const dump = await uploadDmsDump(tenantId!, { file: p.file, dealerId: p.dealerId, businessDate: p.date, kind: p.kind || undefined }, accessToken);
-        update(p.id, { state: 'done', message: `${dump.kind === 'BOOKING' ? 'Booking' : 'Delivery'} dump · ${dump.rows} rows · ${dump.missing} not in Verigence${dump.kind === 'DELIVERY' ? ` · ${dump.notInTool} delivery not uploaded` : ''}` });
+        const toCorrect = dump.sheetIssues ? ` · ${dump.sheetIssues} row${dump.sheetIssues === 1 ? '' : 's'} to correct in the sheet` : '';
+        update(p.id, { state: 'done', message: `${dump.kind === 'BOOKING' ? 'Booking' : 'Delivery'} dump · ${dump.rows} rows · ${dump.missing} not in Verigence${dump.kind === 'DELIVERY' ? ` · ${dump.notInTool} delivery not uploaded` : ''}${toCorrect}` });
       } catch (cause) {
         update(p.id, { state: 'failed', message: cause instanceof Error ? cause.message : 'Could not be uploaded.' });
       }
@@ -199,8 +203,19 @@ export default function P2DataUploadsPage() {
   };
 
   // "All" is the dump's own rows; Verigence's deliveries it lacks have their own tab.
-  const rows = (detail.data?.items ?? []).filter((r) => (outcome ? r.outcome === outcome : r.outcome !== 'NOT_IN_DMS'));
+  const rows = (detail.data?.items ?? []).filter((r) => (
+    outcome === 'MODEL' ? Boolean(r.modelDiffers) : outcome ? r.outcome === outcome : r.outcome !== 'NOT_IN_DMS'));
   const counts = (detail.data?.items ?? []).reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.outcome]: (acc[r.outcome] ?? 0) + 1 }), {});
+  counts.MODEL = (detail.data?.items ?? []).filter((r) => r.modelDiffers).length;
+  // A dump opened from a link shows under its own section (a delivery dump under Delivery dumps).
+  useEffect(() => {
+    const kind = detail.data?.kind;
+    if (!kind || !linked.dumpId || detail.data?.dumpId !== linked.dumpId || kind === dmsKind) return;
+    const updated = new URLSearchParams(params);
+    if (kind === 'BOOKING') updated.delete('type'); else updated.set('type', 'delivery');
+    setParams(updated, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail.data?.dumpId, detail.data?.kind]);
 
   return (
     <div className="screen-stack p2-screen p2w">
@@ -368,6 +383,7 @@ export default function P2DataUploadsPage() {
                   <th className="num">Not in Verigence</th><th className="num">Delivery not uploaded</th>
                   <th className="num" title="Matched on the booking no. / OTF or chassis, a different model in Verigence">Model differs</th>
                   <th className="num" title="Dates taken from the DMS onto the journeys' papers">Dates from DMS</th>
+                  <th className="num" title="Rows the dealership is to correct in its sheet: dates not read, booked after delivered, dated after the dump">To correct</th>
                   <th>Uploaded</th><th>Status</th>
                 </tr>
               </thead>
@@ -384,6 +400,7 @@ export default function P2DataUploadsPage() {
                     <td className="num">{d.kind === 'DELIVERY' ? (d.notInTool ? <span className="p2du-tag p2du-tag--warn">{d.notInTool}</span> : 0) : '—'}</td>
                     <td className="num">{d.modelDiffers ? <span className="p2du-tag p2du-tag--warn">{d.modelDiffers}</span> : 0}</td>
                     <td className="num">{d.datesFromDms ?? 0}</td>
+                    <td className="num">{d.sheetIssues ? <span className="p2du-tag p2du-tag--warn">{d.sheetIssues}</span> : 0}</td>
                     <td><span title={d.fileName}>{d.uploadedBy}</span><br /><small className="p2w-muted">{when(d.uploadedAtUtc)}</small></td>
                     <td>{d.status === 'ACTIVE' ? <span className="p2du-tag p2du-tag--ok">Current</span> : <span className="p2du-tag">Replaced</span>}</td>
                   </tr>
@@ -413,11 +430,40 @@ export default function P2DataUploadsPage() {
                 ) : null}
               </div>
             </header>
+            {detail.data.sheetIssueRows?.length ? (
+              <div className="p2du-sheet-issues">
+                <div className="p2w-alert p2w-alert--review" role="status">
+                  <span><strong>{detail.data.sheetIssueRows.length} row{detail.data.sheetIssueRows.length === 1 ? '' : 's'} to correct in the dealership&apos;s sheet.</strong>{' '}
+                    A date that could not be read is left empty, not guessed: correct the sheet and upload it again.</span>
+                </div>
+                <div className="p2du-scroll">
+                  <table className="p2du-table">
+                    <thead>
+                      <tr><th className="num">Excel row</th><th>Customer</th><th>Chassis</th><th>Column</th><th>Value</th><th>What is wrong</th></tr>
+                    </thead>
+                    <tbody>
+                      {detail.data.sheetIssueRows.map((i, n) => (
+                        <tr key={`${i.sheetRow ?? 'x'}:${i.field}:${n}`}>
+                          <td className="num">{i.sheetRow ?? '—'}</td>
+                          <td>{i.customer ?? '—'}</td>
+                          <td>{i.chassis ?? '—'}</td>
+                          <td>{i.field}</td>
+                          <td>{i.value || '—'}</td>
+                          <td>{i.issue}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             <div className="p2du-toolbar">
               <div className="p2du-switcher" role="tablist" aria-label="Rows">
-                {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL', 'NOT_IN_DMS'] : []), 'MATCHED', ...(detail.data.kind === 'BOOKING' ? ['CANCELLED'] : []), ''] as (DmsRowOutcome | '')[]).map((o) => (
+                {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL', 'NOT_IN_DMS'] : []), 'MATCHED',
+                  ...(counts.MODEL ? ['MODEL'] : []), ...(detail.data.kind === 'BOOKING' ? ['CANCELLED'] : []), ''] as RowView[]).map((o) => (
                   <button key={o || 'all'} type="button" role="tab" aria-selected={outcome === o} onClick={() => setOutcome(o)}>
-                    {o ? DMS_OUTCOME_LABELS[o].label : 'All'}<b>{o ? counts[o] ?? 0 : detail.data!.items.length - (counts.NOT_IN_DMS ?? 0)}</b>
+                    {o === 'MODEL' ? 'Model differs' : o ? DMS_OUTCOME_LABELS[o].label : 'All'}
+                    <b>{o ? counts[o] ?? 0 : detail.data!.items.length - (counts.NOT_IN_DMS ?? 0)}</b>
                   </button>
                 ))}
               </div>

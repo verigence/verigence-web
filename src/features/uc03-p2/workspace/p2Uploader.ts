@@ -145,8 +145,48 @@ export async function runUploads(
   return [...state.values()];
 }
 
-/** Browser PUT with upload progress (fetch has no upload progress events). */
-export function xhrPut(
+/** A PUT to storage that came back with an error status (0 when the connection dropped). */
+export class StoragePutError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'StoragePutError';
+  }
+}
+
+/** Worth trying again: storage's own passing faults (5xx, 429) and a dropped connection.
+ * A refusal (4xx: an expired or wrong link) is not -- the same request would be refused again. */
+export function isRetryableStorageError(cause: unknown): boolean {
+  if (!(cause instanceof StoragePutError)) return false;
+  return cause.status === 0 || cause.status === 429 || cause.status >= 500;
+}
+
+/** Waits before the 2nd and 3rd attempt (ms). */
+export const STORAGE_PUT_RETRY_WAITS = [2_000, 6_000];
+
+/**
+ * Root cause (24 Nov 2026, "Upload was rejected by storage (HTTP 500)"): the browser puts the
+ * file straight to R2 and a passing R2 fault came back to the PC as a failure on the only
+ * attempt, while Audit Core's own calls to R2 retry. Now the browser retries such a fault too,
+ * the same file to the same link; only the last error reaches the PC.
+ */
+export async function withStorageRetry(
+  attempt: () => Promise<void>,
+  waits: number[] = STORAGE_PUT_RETRY_WAITS,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<void> {
+  for (let n = 0; ; n += 1) {
+    try {
+      await attempt();
+      return;
+    } catch (cause) {
+      if (n >= waits.length || !isRetryableStorageError(cause)) throw cause;
+      await sleep(waits[n]);
+    }
+  }
+}
+
+/** One browser PUT with upload progress (fetch has no upload progress events). */
+function xhrPutOnce(
   url: string,
   headers: Record<string, string>,
   file: File,
@@ -161,11 +201,24 @@ export function xhrPut(
     };
     request.onload = () => (request.status >= 200 && request.status < 300
       ? resolve()
-      : reject(new Error(`Upload was rejected by storage (HTTP ${request.status}).`)));
-    request.onerror = () => reject(new Error('Upload failed. Check the connection and retry.'));
+      : reject(new StoragePutError(`Upload was rejected by storage (HTTP ${request.status}).`, request.status)));
+    request.onerror = () => reject(new StoragePutError('Upload failed. Check the connection and retry.', 0));
     request.ontimeout = () => reject(new Error('Upload timed out. Retry on a stronger connection.'));
     request.timeout = 10 * 60 * 1000;
     request.send(file);
+  });
+}
+
+/** Browser PUT with upload progress; a passing storage fault or dropped connection is retried. */
+export function xhrPut(
+  url: string,
+  headers: Record<string, string>,
+  file: File,
+  onProgress: (fraction: number) => void,
+): Promise<void> {
+  return withStorageRetry(() => {
+    onProgress(0);
+    return xhrPutOnce(url, headers, file, onProgress);
   });
 }
 

@@ -35,6 +35,17 @@ function when(value: string | null): string {
     .format(new Date(value));
 }
 
+/** The "uploaded" call, tried again once: storage can take a moment to show a file just put
+ * (Audit Core answers 409 "not reached storage yet"), and a dropped call is not a failed file. */
+async function completeWithRetry(call: () => Promise<unknown>, waitMs = 3_000): Promise<void> {
+  try {
+    await call();
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    await call();
+  }
+}
+
 /** One drop and where each of its files went. */
 function BulkResult({ bulk }: { bulk: BulkUpload }) {
   const busy = bulk.status === 'SUBMITTED' || bulk.status === 'PROCESSING';
@@ -132,10 +143,16 @@ export default function P2BulkUploadPage() {
         for (const [n, item] of prepared.files.entries()) {
           const entry = chunk[n];
           const update = (patch: Partial<Picked>) => setPicked((all) => all.map((p) => (p.key === entry.key ? { ...p, ...patch } : p)));
-          update({ state: 'uploading', progress: 0 });
+          if (item.alreadyUploaded) {
+            // Picked again (a retry, or the page was reloaded): the drop already holds it.
+            update({ state: 'done', progress: 1, error: undefined });
+            continue;
+          }
+          update({ state: 'uploading', progress: 0, error: undefined });
           try {
+            if (!item.uploadUrl) throw new Error('The upload link is missing. Try again.');
             await putToStorage(item.uploadUrl, entry.file, bulkContentType(entry.file), (share) => update({ progress: share }));
-            await completeBulkFile(tenantId, drop.bulkId, item.fileId, accessToken);
+            await completeWithRetry(() => completeBulkFile(tenantId, drop.bulkId, item.fileId, accessToken));
             update({ state: 'done', progress: 1 });
           } catch (cause) {
             update({ state: 'failed', error: cause instanceof Error ? cause.message : 'Upload failed.' });

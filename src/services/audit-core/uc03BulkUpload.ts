@@ -1,3 +1,4 @@
+import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
 import { auditCoreRequest } from './client';
 
 /**
@@ -9,7 +10,8 @@ import { auditCoreRequest } from './client';
  */
 
 export type BulkFileOutcome =
-  | 'PENDING' | 'EXACT_DUPLICATE' | 'READING' | 'NEW_BOOKING' | 'ADDED_TO_BOOKING' | 'KEPT_FOR_REVIEW' | 'FAILED';
+  | 'PENDING' | 'EXACT_DUPLICATE' | 'READING' | 'NEW_BOOKING' | 'ADDED_TO_BOOKING' | 'KEPT_FOR_REVIEW' | 'FAILED'
+  | 'REPLACED';
 
 export type BulkFile = {
   fileId: string;
@@ -38,7 +40,12 @@ export type BulkUpload = {
 
 export type BulkUploadList = { items: BulkUpload[]; inProgress: number; multiOutlet: boolean };
 
-export type PreparedBulkFile = { fileId: string; filename: string; objectKey: string; contentType: string; uploadUrl: string };
+/** ``alreadyUploaded``: the drop already holds this file (picked again after a retry or a page
+ * reload) -- nothing to put; else ``uploadUrl`` is where to put it, the file's own record. */
+export type PreparedBulkFile = {
+  fileId: string; filename: string; objectKey: string; contentType: string;
+  alreadyUploaded?: boolean; uploadUrl: string | null;
+};
 
 const base = (tenantId: string) => `/p2/v1/tenants/${encodeURIComponent(tenantId)}/bulk-uploads`;
 
@@ -73,19 +80,10 @@ export function submitBulkUpload(tenantId: string, bulkId: string, accessToken?:
   return auditCoreRequest<BulkUpload>(`${base(tenantId)}/${encodeURIComponent(bulkId)}/submit`, { method: 'POST', accessToken });
 }
 
-/** The file straight into storage, with its progress (0..1). */
+/** The file straight into storage, with its progress (0..1); a passing storage fault or a
+ * dropped connection is retried (xhrPut). */
 export function putToStorage(url: string, file: File, contentType: string, onProgress?: (share: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', url);
-    xhr.setRequestHeader('Content-Type', contentType);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
-    };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (HTTP ${xhr.status}).`)));
-    xhr.onerror = () => reject(new Error('Upload failed: the connection dropped.'));
-    xhr.send(file);
-  });
+  return xhrPut(url, { 'Content-Type': contentType }, file, (share) => onProgress?.(share));
 }
 
 export const BULK_ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
@@ -112,6 +110,7 @@ export const OUTCOME_LABELS: Record<BulkFileOutcome, { label: string; tone: 'ok'
   ADDED_TO_BOOKING: { label: 'Added to booking', tone: 'ok' },
   KEPT_FOR_REVIEW: { label: 'Kept for review', tone: 'warn' },
   FAILED: { label: 'Failed', tone: 'bad' },
+  REPLACED: { label: 'Uploaded again', tone: 'ok' },
 };
 
 export function bulkInProgress(list: BulkUploadList | undefined): boolean {

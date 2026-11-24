@@ -7,7 +7,10 @@ import type { ReviewerClosureFlag } from '../../features/uc03-p2/workspace/Journ
  * whole Project. Audit Core GET /p2/v1/tenants/{tenantId}/missing-documents.
  */
 
-export type MissingDocumentCount = { name: string; requirementKey: string; count: number };
+/** Where a document is missing, one outlet (product owner 2026-11-24). */
+export type MissingDocumentPlace = { dealerId: string; dealerName: string | null; outletId: string; outletName: string | null; count: number };
+
+export type MissingDocumentCount = { name: string; requirementKey: string; count: number; byOutlet?: MissingDocumentPlace[] };
 
 export type MissingDocumentsJourney = {
   journeyId: string;

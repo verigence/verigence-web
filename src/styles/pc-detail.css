@@ -123,3 +123,8 @@
   .pcx-day, .pcx-body { padding-left: 16px; padding-right: 16px; }
   .pcx-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.pcx-link {
+  margin-left: auto; border: 0; background: none; padding: 0 4px; font: inherit; font-weight: 600;
+  color: #003a82; cursor: pointer; min-height: 32px;
+}
+.pcx-link:hover { text-decoration: underline; }

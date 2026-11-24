@@ -295,7 +295,7 @@ export default function P2DailyProcessingReportPage() {
   const askedDay = searchParams.get('day');
   const [day, setDay] = useState(askedDay && /^\d{4}-\d{2}-\d{2}$/.test(askedDay) && askedDay <= todayIso() ? askedDay : todayIso());
   if (role === 'TL' || role === 'PM' || role === 'EXECUTIVE') {
-    return <Navigate to={trackerTabHref('daily-processing', askedDay ?? undefined)} replace />;
+    return <Navigate to={trackerTabHref('team', askedDay ?? undefined)} replace />;
   }
   return (
     <div className="screen-stack p2-screen p2w p2dr">

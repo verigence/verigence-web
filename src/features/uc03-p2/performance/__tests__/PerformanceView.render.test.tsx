@@ -60,7 +60,9 @@ function render(data: Performance, tab: TabKey, dashboard?: Performance): string
   if (dashboard) client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'dashboard'], dashboard);
   return renderToString(
     <QueryClientProvider client={client}>
-      <PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" initialView={VIEW[tab]} initialDetail={tab} />
+      <MemoryRouter>
+        <PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" initialView={VIEW[tab]} initialDetail={tab} />
+      </MemoryRouter>
     </QueryClientProvider>,
   ).replaceAll('<!-- -->', '');
 }
@@ -209,7 +211,7 @@ describe('Performance view', () => {
     const client = new QueryClient();
     client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'dashboard'], board);
     const html = renderToString(
-      <QueryClientProvider client={client}><PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" /></QueryClientProvider>,
+      <QueryClientProvider client={client}><MemoryRouter><PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" /></MemoryRouter></QueryClientProvider>,
     ).replaceAll('<!-- -->', '');
     for (const tab of ['What I did', 'Waiting for me', 'Tasks']) expect(html).toMatch(new RegExp(`role="tab"[^>]*>${tab}<`));
     expect(html).toMatch(/aria-selected="true"[^>]*>What I did</);

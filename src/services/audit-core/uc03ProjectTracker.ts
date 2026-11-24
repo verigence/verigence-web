@@ -222,25 +222,33 @@ export function monthLabel(month: string): string {
 
 // ---------------------------------------------------------------- tabs (product owner 2026-11-09, 2026-11-13)
 
-/** The Project Tracker is the one place for a Team Lead, PM or Executive (2026-11-09). Without the
- *  duplicates (2026-11-13: "Project Tracker has so much of duplicate information"): Performance, then
- *  the two pieces the product owner keeps -- work done on tasks with the delivery files closed, and
- *  the Gate Register (2026-11-14: its outlet-wise daily status merged back with the calendar). The old
- *  tracker figures and the rest of the Daily processing tab repeated Performance. The keys stay, so old addresses still open their tab.
- *  Journeys: the Dealership-wise / Outlet-wise / PC-wise panels moved off the TL's landing page; DMS
- *  dumps: the dealers' daily dumps like the gate register, the Team Lead's only (both 2026-11-13). */
-export type TrackerTab = 'pc-day' | 'performance' | 'journeys' | 'daily-processing' | 'gate-pass' | 'duties' | 'dms-dumps';
+/** The Project Tracker is the one place for a Team Lead, PM or Executive (2026-11-09). One row of
+ *  tabs, no tabs within tabs (product owner 2026-11-24: "there are in total 13 tabs mix of direct or
+ *  sub direct.. do we really get the meaningful info ... keep which are in performance and bring them
+ *  to main tab and remove old"). Each tab answers one question:
+ *  - Team and outlets: who did what (a PC's row opens their day, an outlet's its Journeys);
+ *  - Pending: what is waiting now, and how long it has waited;
+ *  - Uploads and failures: how files come in, what failed and why, duplicates;
+ *  - Against the DMS: what the DMS says each PC received and what is in Verigence (the Team
+ *    Lead's DMS dump calendar with it);
+ *  - Gate Register and Daily duties: the registers, and the PCs' daily duties with their list.
+ *  Dropped as repeats of these: Overview, Efficiency, Tasks and Duties within Performance, and
+ *  Journeys; PCs' day and Work done and files closed went into a PC's row on 2026-11-24. */
+export type TrackerTab = 'team' | 'pending' | 'uploads' | 'dms' | 'gate-pass' | 'duties';
 export const TRACKER_TABS: Array<{ key: TrackerTab; label: string; roles?: string[] }> = [
-  // How the team and each person is doing (2026-11-13); the Tracker opens on its Team and outlets,
-  // today (product owner 2026-11-24: "team and outlet is better view"). The PCs' day and Work done
-  // and files closed tabs are folded into it: a PC's row opens their day.
-  { key: 'performance', label: 'Performance' },
-  { key: 'journeys', label: 'Journeys' },
+  { key: 'team', label: 'Team and outlets' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'uploads', label: 'Uploads and failures' },
+  { key: 'dms', label: 'Against the DMS' },
   { key: 'gate-pass', label: 'Gate Register' },
-  // The PCs' daily duties, day by day, and the duty list with its switch (product owner 2026-11-18).
   { key: 'duties', label: 'Daily duties' },
-  { key: 'dms-dumps', label: 'DMS dumps', roles: ['TL'] },
 ];
+
+/** Old addresses, to the tab that holds what they showed. */
+const OLD_TABS: Record<string, TrackerTab> = {
+  performance: 'team', tracker: 'team', 'pc-day': 'team', 'daily-processing': 'team', journeys: 'team',
+  'dms-dumps': 'dms',
+};
 
 /** The tabs a role sees. */
 export function trackerTabsFor(role: string | null | undefined): typeof TRACKER_TABS {
@@ -249,14 +257,11 @@ export function trackerTabsFor(role: string | null | undefined): typeof TRACKER_
 
 export const PROJECT_TRACKER_PATH = '/p2/project-tracker';
 
-/** The tab in the address (?tab=daily-processing); Performance by default, also for the old
- *  ?tab=tracker and the tracker's ?period= / ?view= addresses. */
+/** The tab in the address; Team and outlets by default, old addresses to the tab that holds them. */
 export function trackerTabFromSearch(search: URLSearchParams): TrackerTab {
-  const raw = search.get('tab');
+  const raw = search.get('tab') ?? '';
   if (TRACKER_TABS.some((t) => t.key === raw)) return raw as TrackerTab;
-  // Everything else -- the page itself, the old tracker's addresses, and the PCs' day and Work done
-  // tabs folded in on 2026-11-24 -- opens Performance.
-  return 'performance';
+  return OLD_TABS[raw] ?? 'team';
 }
 
 /** The day the "Work done and files closed" tab shows: ?day=, else an old tracker address's ?date=,
@@ -269,11 +274,12 @@ export function dailyProcessingDay(search: URLSearchParams, today: string = istD
   return today;
 }
 
-/** The address of a tab: /p2/project-tracker?tab=daily-processing&day=2026-11-08; Performance is the
- *  page itself. Old addresses (/p2/reports/daily, the supervisor's /p2/gate-pass) open these. */
+/** The address of a tab: /p2/project-tracker?tab=gate-pass; Team and outlets is the page itself.
+ *  Old addresses (/p2/reports/daily, the supervisor's /p2/gate-pass) open these. */
 export function trackerTabHref(tab: TrackerTab, day?: string): string {
-  if (tab === 'performance') return PROJECT_TRACKER_PATH;
-  const params = new URLSearchParams({ tab });
-  if (tab === 'daily-processing' && day && /^\d{4}-\d{2}-\d{2}$/.test(day)) params.set('day', day);
-  return `${PROJECT_TRACKER_PATH}?${params.toString()}`;
+  // Team and outlets is the page itself; a day opens it on that day (old Work done addresses).
+  if (tab === 'team') {
+    return day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? `${PROJECT_TRACKER_PATH}?${new URLSearchParams({ day })}` : PROJECT_TRACKER_PATH;
+  }
+  return `${PROJECT_TRACKER_PATH}?${new URLSearchParams({ tab }).toString()}`;
 }

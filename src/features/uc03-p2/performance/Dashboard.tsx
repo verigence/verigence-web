@@ -455,8 +455,10 @@ function Peers({ board }: { board: Board }) {
  * duplicates, tasks and duties. The server sends only the blocks a SuperAdmin has left on for the
  * role; a panel fills the room a hidden one leaves. At most one chart canvas on a tab.
  */
-export default function Dashboard({ board, view, periods, asOf, onPick }: {
+export default function Dashboard({ board, view, periods, asOf, onPick, compact = false }: {
   board: Board; view: View; periods: Period[]; asOf: string; onPick?: PickRow;
+  /** Under a tab of its own (the Project Tracker): no heading repeating the tab, only the time. */
+  compact?: boolean;
 }) {
   const option = useMemo(() => (view === 'overview' && board.trend ? trendOption(board.trend.series, periods) : null), [view, board.trend, periods]);
   const own = board.view !== 'TEAM';
@@ -484,7 +486,7 @@ export default function Dashboard({ board, view, periods, asOf, onPick }: {
     body = (
       <>
         <div className="p2db-row">
-          <Panel title={board.pending.title} about="Whatever the dates above: what is waiting right now, and how long it has waited."><Pending board={board} /></Panel>
+          <Panel title={board.pending.title} about="What is waiting right now, whatever the dates, and how long it has waited."><Pending board={board} /></Panel>
         </div>
         {board.pending.cards?.length ? (
           <div className="p2db-row">
@@ -495,11 +497,19 @@ export default function Dashboard({ board, view, periods, asOf, onPick }: {
     );
   } else if (view === 'team' && board.scorecards?.length) {
     body = (
-      <div className="p2db-row">
-        <Scorecards cards={board.scorecards} title={own ? undefined : 'Who is doing what'}
-          onPick={own ? undefined : onPick} pickable={['pcs']}
-          about={own ? undefined : `${board.period}. Work done in the period beside what is waiting now. Click a heading to sort${onPick ? ', a PC for their day' : ''}.`} />
-      </div>
+      <>
+        {/* What needs attention first, brought over from the dropped Overview (2026-11-24). */}
+        {!own && onPick && board.attention?.lines.length ? (
+          <div className="p2db-row">
+            <Panel title="Needs attention" about="The outlets and people to speak to first."><Attention board={board} /></Panel>
+          </div>
+        ) : null}
+        <div className="p2db-row">
+          <Scorecards cards={board.scorecards} title={own ? undefined : 'Who is doing what'}
+            onPick={own ? undefined : onPick} pickable={['pcs', 'outlets']}
+            about={own ? undefined : `${board.period}. Work done in the period beside what is waiting now. Click a heading to sort${onPick ? '; a PC for their day, an outlet for its Journeys' : ''}.`} />
+        </div>
+      </>
     );
   } else if (view === 'efficiency' && board.efficiency) {
     body = (
@@ -530,10 +540,14 @@ export default function Dashboard({ board, view, periods, asOf, onPick }: {
   }
   return (
     <div className="p2db">
-      <header className="p2db-head">
-        <h2>{board.title}</h2>
-        <p>{board.period} · figures as of {new Date(asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-      </header>
+      {compact ? (
+        <p className="p2db-asof">{board.period} · figures as of {new Date(asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+      ) : (
+        <header className="p2db-head">
+          <h2>{board.title}</h2>
+          <p>{board.period} · figures as of {new Date(asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+        </header>
+      )}
       {body}
     </div>
   );

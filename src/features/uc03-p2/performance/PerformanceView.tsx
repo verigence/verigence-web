@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
@@ -763,19 +764,24 @@ const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStri
  * their own. A SuperAdmin chooses the blocks and the detail each role sees.
  */
 export default function PerformanceView({ tenantId, accessToken, today, initialView = 'overview', initialDetail = null,
-  initialFrom, initialTo, pcDays = false }: {
+  initialFrom, initialTo, pcDays = false, fixedView, journeysPath }: {
   tenantId: string; accessToken: string | undefined; today: string; initialView?: View; initialDetail?: Tab | null;
   /** The range it opens on: the last 7 days unless given. */
   initialFrom?: string; initialTo?: string;
   /** A PC's row in Team and outlets opens their day (the Project Tracker, 2026-11-24). */
   pcDays?: boolean;
+  /** One view only, its tab being the Project Tracker's own (2026-11-24: no tabs within tabs). */
+  fixedView?: View;
+  /** Where an outlet's row (and a PC's day) opens the Journeys, narrowed to it. */
+  journeysPath?: string;
 }) {
+  const navigate = useNavigate();
   const [from, setFrom] = useState(initialFrom ?? addDays(today, -6));
   const [to, setTo] = useState(initialTo ?? today);
   const [picked, setPicked] = useState<{ id: string; name: string; sub?: string } | null>(null);
   const [modePicked, setModePicked] = useState<Mode | null>(null);
-  const [view, setView] = useState<View>(initialView);
-  const [detail, setDetail] = useState<Tab | null>(initialDetail ?? VIEWS.find((v) => v.key === initialView)?.open ?? null);
+  const [view, setView] = useState<View>(fixedView ?? initialView);
+  const [detail, setDetail] = useState<Tab | null>(initialDetail ?? VIEWS.find((v) => v.key === (fixedView ?? initialView))?.open ?? null);
   const span = daysBetween(from, to);
   const valid = from <= to && to <= today && span <= 92;
   const mode = modePicked ?? defaultMode(span);
@@ -806,15 +812,22 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
     return !sections || (sections.some((x) => x.key === section) && (!own || section !== 'flow'));
   };
   // A tab is there while it has a block of the dashboard or a detail switched on for the role.
-  const views = VIEWS.filter((v) => (!dashboard.data && !data) || (board ? viewHas(board, v.key) : false) || v.details.some(allowed));
+  const views = VIEWS.filter((v) => (!fixedView || v.key === fixedView)
+    && ((!dashboard.data && !data) || (board ? viewHas(board, v.key) : false) || v.details.some(allowed)));
   const current = views.find((v) => v.key === view) ?? views[0];
   const details = current ? current.details.filter(allowed) : [];
   const range = from === to ? shortDate(from) : `${shortDate(from)} to ${shortDate(to)}`;
   const pick = (f: string, t: string) => { setFrom(f); setTo(t); setModePicked(null); };
   const shown = open && data && details.includes(open.key) ? open.key : null;
 
+  // Pending is what waits now, whatever the dates: no range to choose.
+  const dated = fixedView !== 'pending';
+  const openJourneys = (key: 'outlet' | 'pc', id: string) => {
+    if (journeysPath) navigate(`${journeysPath}?${new URLSearchParams({ [key]: id, from, to })}`);
+  };
   return (
     <>
+      {dated ? (
       <div className="p2mw-controls">
         <span className="p2mw-range">
           <label>From <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
@@ -823,10 +836,12 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
           <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(addDays(today, -6), today)}>Last 7 days</button>
           <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(`${today.slice(0, 8)}01`, today)}>This month</button>
         </span>
-        <Segment label="Shown" value={mode} options={MODES} onChange={(m) => setModePicked(m)} />
+        {from !== to ? <Segment label="Shown" value={mode} options={MODES} onChange={(m) => setModePicked(m)} /> : null}
       </div>
+      ) : null}
       {valid ? null : <div className="p2w-alert p2w-alert--error" role="alert">Choose a range of up to 92 days, ending today or earlier.</div>}
 
+      {fixedView ? null : (
       <div className="p2pt-tabs" role="tablist" aria-label="Performance">
         {views.map((v) => (
           <button key={v.key} type="button" role="tab" aria-selected={current?.key === v.key}
@@ -838,6 +853,7 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
             }}>{viewLabel(v.key, board)}</button>
         ))}
       </div>
+      )}
 
       {dashboard.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
       {dashboard.isError ? (
@@ -850,12 +866,16 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
       ) : null}
       {dashboard.data && !views.length ? <SectionCard><p className="p2w-muted">Nothing is switched on for your role here.</p></SectionCard> : null}
       {board && current ? (
-        <Dashboard board={board} view={current.key} periods={periods} asOf={dashboard.data!.asOfUtc}
-          onPick={pcDays && tenantId ? (row) => setPicked({ id: row.id, name: row.name, sub: row.sub ?? undefined }) : undefined} />
+        <Dashboard board={board} view={current.key} periods={periods} asOf={dashboard.data!.asOfUtc} compact={Boolean(fixedView)}
+          onPick={pcDays && tenantId ? (row, card) => {
+            if (card === 'pcs') setPicked({ id: row.id, name: row.name, sub: row.sub ?? undefined });
+            else if (card === 'outlets') openJourneys('outlet', row.id);
+          } : undefined} />
       ) : null}
       {picked && tenantId ? (
         <PcDetailPanel tenantId={tenantId} accessToken={accessToken} actorId={picked.id} name={picked.name} sub={picked.sub}
-          initialDay={to} today={today} onClose={() => setPicked(null)} />
+          initialDay={to} today={today} onClose={() => setPicked(null)}
+          onJourneys={journeysPath ? () => openJourneys('pc', picked.id) : undefined} />
       ) : null}
 
       {details.length ? (

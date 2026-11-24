@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -34,6 +34,8 @@ import { istMonth, monthLabel, monthsUpTo } from '../services/audit-core/uc03Pro
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
+// A dump's rows by outcome, or MODEL: the matched rows whose model differs (product owner 2026-11-24).
+type RowView = DmsRowOutcome | 'MODEL' | '';
 type Pending = { id: string; file: File; dealerId: string; date: string; kind: DmsDumpKind | ''; state: 'ready' | 'uploading' | 'done' | 'failed'; message?: string };
 
 function when(value: string): string {
@@ -67,14 +69,15 @@ export default function P2DataUploadsPage() {
   const [dealerId, setDealerId] = useState('');
   const [pending, setPending] = useState<Pending[]>([]);
   const [over, setOver] = useState(false);
-  const [selected, setSelected] = useState<string | null>(() => {
-    // The uploader's model-differs alert links here with ?dumpId= (2026-11-21).
-    try { return new URLSearchParams(window.location.search).get('dumpId'); } catch { return null; }
-  });
-  const [outcome, setOutcome] = useState<DmsRowOutcome | ''>('MISSING');
+  // The uploader's model-differs alert links here with ?dumpId= (2026-11-21); the dump opens on
+  // its "Model differs" rows (product owner 2026-11-24), the alerts already out included.
+  const [params, setParams] = useSearchParams();
+  const linked = { dumpId: params.get('dumpId'), view: params.get('view') };
+  const [selected, setSelected] = useState<string | null>(linked.dumpId);
+  // MODEL: the matched rows whose model differs between the DMS and Verigence.
+  const [outcome, setOutcome] = useState<RowView>(linked.dumpId && (linked.view ?? 'model') === 'model' ? 'MODEL' : 'MISSING');
   const [error, setError] = useState<string | null>(null);
   // Bank statements sit beside the DMS dumps (product owner 14 Nov 2026): ?type=bank links there.
-  const [params, setParams] = useSearchParams();
   const typeParam = params.get('type');
   // The booking and delivery dumps apart (product owner 18 Nov 2026): ?type=delivery.
   // The monthly insurance dumps and the OD discount grid (product owner 16 Nov 2026): ?type=insurance.
@@ -199,8 +202,19 @@ export default function P2DataUploadsPage() {
   };
 
   // "All" is the dump's own rows; Verigence's deliveries it lacks have their own tab.
-  const rows = (detail.data?.items ?? []).filter((r) => (outcome ? r.outcome === outcome : r.outcome !== 'NOT_IN_DMS'));
+  const rows = (detail.data?.items ?? []).filter((r) => (
+    outcome === 'MODEL' ? Boolean(r.modelDiffers) : outcome ? r.outcome === outcome : r.outcome !== 'NOT_IN_DMS'));
   const counts = (detail.data?.items ?? []).reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.outcome]: (acc[r.outcome] ?? 0) + 1 }), {});
+  counts.MODEL = (detail.data?.items ?? []).filter((r) => r.modelDiffers).length;
+  // A dump opened from a link shows under its own section (a delivery dump under Delivery dumps).
+  useEffect(() => {
+    const kind = detail.data?.kind;
+    if (!kind || !linked.dumpId || detail.data?.dumpId !== linked.dumpId || kind === dmsKind) return;
+    const updated = new URLSearchParams(params);
+    if (kind === 'BOOKING') updated.delete('type'); else updated.set('type', 'delivery');
+    setParams(updated, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail.data?.dumpId, detail.data?.kind]);
 
   return (
     <div className="screen-stack p2-screen p2w">
@@ -415,9 +429,11 @@ export default function P2DataUploadsPage() {
             </header>
             <div className="p2du-toolbar">
               <div className="p2du-switcher" role="tablist" aria-label="Rows">
-                {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL', 'NOT_IN_DMS'] : []), 'MATCHED', ...(detail.data.kind === 'BOOKING' ? ['CANCELLED'] : []), ''] as (DmsRowOutcome | '')[]).map((o) => (
+                {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL', 'NOT_IN_DMS'] : []), 'MATCHED',
+                  ...(counts.MODEL ? ['MODEL'] : []), ...(detail.data.kind === 'BOOKING' ? ['CANCELLED'] : []), ''] as RowView[]).map((o) => (
                   <button key={o || 'all'} type="button" role="tab" aria-selected={outcome === o} onClick={() => setOutcome(o)}>
-                    {o ? DMS_OUTCOME_LABELS[o].label : 'All'}<b>{o ? counts[o] ?? 0 : detail.data!.items.length - (counts.NOT_IN_DMS ?? 0)}</b>
+                    {o === 'MODEL' ? 'Model differs' : o ? DMS_OUTCOME_LABELS[o].label : 'All'}
+                    <b>{o ? counts[o] ?? 0 : detail.data!.items.length - (counts.NOT_IN_DMS ?? 0)}</b>
                   </button>
                 ))}
               </div>

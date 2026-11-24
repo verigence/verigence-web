@@ -85,6 +85,9 @@
 
 .p2du-panel { border-top: 1px solid var(--p2w-line); margin-top: 16px; padding-top: 12px; }
 .p2du-panel header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+/* Rows the dealership is to correct in its sheet (2026-11-24): a notice, then the rows. */
+.p2du-sheet-issues { display: grid; gap: 8px; margin: 12px 0 16px; }
+.p2du-sheet-issues .p2du-scroll { max-height: 320px; overflow-y: auto; }
 .p2du-scroll { overflow-x: auto; }
 .p2du-types { display: flex; flex-wrap: wrap; gap: 8px; }
 .p2du-type { padding: 8px 12px; background: #f4f4f4; border-left: 3px solid #0f62fe; font-size: .85rem; }

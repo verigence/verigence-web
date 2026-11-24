@@ -43,6 +43,20 @@ export type DmsDump = {
   modelDiffers?: number;
   /** Dates taken from the DMS onto the journeys' papers on such matches (2026-11-21). */
   datesFromDms?: number;
+  /** Rows the dealership is to correct in its sheet (2026-11-24); the list is on the upload's read. */
+  sheetIssues?: number;
+  sheetIssueRows?: DmsSheetIssue[];
+};
+
+/** A row to correct in the dealership's sheet: a date not read (left empty, never guessed), a
+ * booking after its delivery, a date after the dump's date (2026-11-24). */
+export type DmsSheetIssue = {
+  sheetRow: number | null;
+  customer: string | null;
+  chassis: string | null;
+  field: string;
+  value: string;
+  issue: string;
 };
 
 /** What the DMS date did on a sure match (2026-11-21). */

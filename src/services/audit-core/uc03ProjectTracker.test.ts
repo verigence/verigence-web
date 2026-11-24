@@ -82,19 +82,20 @@ describe('Team Lead dashboard calendar month', () => {
 });
 
 describe('Project Tracker tabs', () => {
-  it('reads the tab from the address, Performance by default (old tracker addresses too)', () => {
-    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('performance');
-    expect(trackerTabFromSearch(new URLSearchParams('tab=tracker'))).toBe('performance');
-    expect(trackerTabFromSearch(new URLSearchParams('period=week&view=files'))).toBe('performance');
-    // The PCs' day and Work done tabs folded into Team and outlets (2026-11-24): their addresses open Performance.
-    expect(trackerTabFromSearch(new URLSearchParams('tab=daily-processing'))).toBe('performance');
-    expect(trackerTabFromSearch(new URLSearchParams('tab=pc-day'))).toBe('performance');
+  it('opens on Team and outlets; old addresses open the tab that holds what they showed (2026-11-24)', () => {
+    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('team');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=tracker'))).toBe('team');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=performance'))).toBe('team');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=pc-day'))).toBe('team');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=daily-processing&day=2026-11-07'))).toBe('team');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=journeys'))).toBe('team');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=dms-dumps'))).toBe('dms');
     expect(trackerTabFromSearch(new URLSearchParams('tab=gate-pass'))).toBe('gate-pass');
-    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('performance');
-    expect(trackerTabFromSearch(new URLSearchParams('tab=performance'))).toBe('performance');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=uploads'))).toBe('uploads');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('team');
   });
 
-  it('the Daily processing day comes from ?day=, then the tracker date, never the future', () => {
+  it('the day comes from ?day=, then the tracker date, never the future', () => {
     const today = '2026-11-09';
     expect(dailyProcessingDay(new URLSearchParams('tab=daily-processing&day=2026-11-07'), today)).toBe('2026-11-07');
     expect(dailyProcessingDay(new URLSearchParams('period=week&date=2026-11-04'), today)).toBe('2026-11-04');
@@ -102,23 +103,16 @@ describe('Project Tracker tabs', () => {
     expect(dailyProcessingDay(new URLSearchParams('day=bad'), today)).toBe(today);
   });
 
-  it('keeps Performance and the two pieces the product owner keeps, with Journeys and the DMS dumps (2026-11-13)', () => {
-    // Journeys: the Dealership / Outlet / PC-wise panels moved off the TL landing page; DMS dumps:
-    // the daily dumps like the gate register, the Team Lead's only.
-    // Daily duties: the PCs' duties day by day and the duty list (2026-11-18).
-    // Performance opens the Tracker on Team and outlets; the PCs' day and Work done and files closed
-    // are a PC's day opened from their row (2026-11-24).
-    expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Journeys', 'Gate Register', 'Daily duties', 'DMS dumps']);
-    expect(trackerTabsFor('TL').map((t) => t.key)).toContain('dms-dumps');
-    expect(trackerTabsFor('PM').map((t) => t.key)).not.toContain('dms-dumps');
-    expect(trackerTabsFor('EXECUTIVE').map((t) => t.key)).not.toContain('dms-dumps');
+  it('one row of tabs, each its own question, for every team role (2026-11-24)', () => {
+    expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Team and outlets', 'Pending', 'Uploads and failures',
+      'Against the DMS', 'Gate Register', 'Daily duties']);
+    for (const role of ['TL', 'PM', 'EXECUTIVE']) expect(trackerTabsFor(role)).toHaveLength(6);
   });
 
-  it('old addresses open the matching tab', () => {
-    expect(trackerTabHref('daily-processing', '2026-11-08')).toBe('/p2/project-tracker?tab=daily-processing&day=2026-11-08');
-    expect(trackerTabHref('daily-processing')).toBe('/p2/project-tracker?tab=daily-processing');
+  it('addresses: Team and outlets is the page itself, on a day if one is given', () => {
+    expect(trackerTabHref('team')).toBe('/p2/project-tracker');
+    expect(trackerTabHref('team', '2026-11-08')).toBe('/p2/project-tracker?day=2026-11-08');
     expect(trackerTabHref('gate-pass')).toBe('/p2/project-tracker?tab=gate-pass');
-    expect(trackerTabHref('performance')).toBe('/p2/project-tracker');
   });
 });
 

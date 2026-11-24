@@ -195,3 +195,6 @@
   .p2db-table th[scope="row"] { min-width: 130px; }
   .p2db-duty__sum { margin-left: 0; flex-basis: 100%; }
 }
+/* Under a Project Tracker tab: the time of the figures only (2026-11-24). */
+.p2db-asof { margin: 4px 0 0; font-size: 12px; line-height: 16px; color: var(--db-text-2); }
+.p2db-details { margin-top: 8px; }

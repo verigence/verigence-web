@@ -63,9 +63,11 @@ function registerLine(g: PcDayRegister): string {
   return parts.join(' · ');
 }
 
-export default function PcDetailPanel({ tenantId, accessToken, actorId, name, sub, initialDay, today, onClose }: {
+export default function PcDetailPanel({ tenantId, accessToken, actorId, name, sub, initialDay, today, onClose, onJourneys }: {
   tenantId: string; accessToken?: string; actorId: string; name: string; sub?: string;
   initialDay: string; today: string; onClose: () => void;
+  /** Opens the Journey list narrowed to this PC. */
+  onJourneys?: () => void;
 }) {
   const [day, setDay] = useState(initialDay);
   useEffect(() => {
@@ -104,6 +106,7 @@ export default function PcDetailPanel({ tenantId, accessToken, actorId, name, su
           <input type="date" value={day} max={today} aria-label="Day" onChange={(e) => e.target.value && setDay(e.target.value)} />
           <button type="button" className="pcx-step" aria-label="Next day" disabled={day >= today} onClick={() => setDay(addDays(day, 1))}>›</button>
           <strong>{dayText(day)}</strong>
+          {onJourneys ? <button type="button" className="pcx-link" onClick={onJourneys}>Their Journeys</button> : null}
         </div>
 
         <div className="pcx-body">

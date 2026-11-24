@@ -21,7 +21,13 @@ export const sample = (): DutyEvidence => {
         summary: { gate: duty({ notDone: 6 }), cash: { ...duty({ notDone: 6 }), amount: 0, transactions: 0 },
           statements: 0, photos: { drive: 0, camera: 0, unread: 0 } },
         days: [] },
+      { actorId: 'a3', name: 'PC Three', outlets: ['Test Motors - A', 'Test Motors - B', 'Test Motors - C'],
+        summary: { gate: duty({ done: 12, late: 2, noCounts: 1, notDone: 3, days: 6 }),
+          cash: { ...duty({ done: 2, notDone: 4, days: 2 }), amount: 50000, transactions: 6 },
+          statements: 0, photos: { drive: 0, camera: 0, unread: 0 } },
+        days: [] },
     ],
+    cashFrom: addDays(today, -3),
   };
 };
 
@@ -35,11 +41,21 @@ describe('DutyEvidencePanel', () => {
   it('shows each PC: gate register, cash register with the amount, statements and photos by source', () => {
     const html = render(sample());
     expect(html).toContain('PC One');
-    expect(html).toContain('5<!-- --> of <!-- -->6<!-- --> days');
+    expect(html).toContain('5<!-- --> of <!-- -->6<!-- --> <!-- -->days');
     expect(html).toContain('₹<!-- -->1,25,000');
     expect(html).toContain('Drive photo folder');
     expect(html).toContain('Unread pages kept');
     // A PC who did nothing shows 0 of 6, flagged.
     expect(html).toContain('dty-tag--bad');
+  });
+
+  it('counts registers for a PC with several outlets and says from when the cash ledger is counted', () => {
+    const html = render(sample());
+    expect(html).toContain('14<!-- --> of <!-- -->18<!-- --> <!-- -->registers');
+    expect(html).toContain('3<!-- --> outlets × <!-- -->6<!-- --> days');
+    expect(html).toContain('1<!-- --> <!-- -->register<!-- --> without counts');
+    expect(html).toContain('Counted from');
+    expect(html).toContain('Added in Verigence');
+    expect(html).not.toContain('App camera');
   });
 });

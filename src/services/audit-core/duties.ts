@@ -146,8 +146,10 @@ export function getTeamDuties(mode: DutiesMode, tenantId: string, range: { from:
 
 /** A day's gate register or cash ledger duty at a PC's outlets, by state (product owner 2026-11-24). */
 export type EvidenceDuty = {
-  done: number; late: number; notReceived: number; pending: number; notDone: number;
-  outlets?: Array<{ outletName: string; state: 'DONE' | 'LATE' | 'NOT_RECEIVED' | 'PENDING' | 'NOT_DONE';
+  done: number; late: number; noCounts?: number; notReceived: number; pending: number; notDone: number;
+  /** Summary only: the days of the range counted (a day still to be entered is not). */
+  days?: number;
+  outlets?: Array<{ outletName: string; state: 'DONE' | 'LATE' | 'NO_COUNTS' | 'NOT_RECEIVED' | 'PENDING' | 'NOT_DONE';
     amount: number | null; transactions: number | null; by: string | null }>;
 };
 export type EvidencePhotos = { drive: number; camera: number; unread: number };
@@ -157,7 +159,12 @@ export type EvidencePc = {
   summary: { gate: EvidenceDuty; cash: EvidenceDuty & { amount: number; transactions: number }; statements: number; photos: EvidencePhotos };
   days: EvidenceDay[];
 };
-export type DutyEvidence = { from: string; to: string; today: string; days: string[]; pcs: EvidencePc[] };
+export type DutyEvidence = {
+  from: string; to: string; today: string; days: string[];
+  /** The first day the cash ledger was asked for; days before it are not counted. */
+  cashFrom?: string | null;
+  pcs: EvidencePc[];
+};
 
 /** What each PC did, day by day: gate register, cash register, bank statements, photos. */
 export function getDutyEvidence(mode: DutiesMode, tenantId: string, range: { from: string; to: string }, accessToken?: string) {

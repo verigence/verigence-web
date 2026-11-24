@@ -102,3 +102,25 @@
 .dty-missed th:nth-child(3) { width: 9%; }
 .dty-missed th:nth-child(4) { width: 14%; }
 .dty-missed th:nth-child(6) { width: 15%; }
+/* What each PC did on their duties (product owner 2026-11-24). */
+.dty-muted { color: #8a96a3; }
+.dty-ev th { min-width: 0; }
+.dty-ev th:first-child { min-width: 220px; width: auto; }
+.dty-ev th.dty-ev__group { text-align: center; border-bottom: 1px solid #dfe5ec; }
+.dty-ev .dty-ev__num { width: 112px; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.dty-ev .dty-ev__duty { width: 170px; }
+.dty-ev td { vertical-align: middle; }
+.dty-ev td.dty-ev__num > strong { display: inline; }
+.dty-ev__stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.dty-ev__stack small { color: #66717d; font-size: 11px; }
+.dty-ev__toggle { display: inline-flex; gap: 6px; align-items: center; padding: 0; border: 0; background: none; color: #0f62fe;
+  font: inherit; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
+.dty-ev__toggle:focus-visible { outline: 2px solid #0f62fe; outline-offset: 2px; }
+.dty-ev__outlets { display: block; margin-top: 2px; padding-left: 18px; color: #66717d; font-size: 11px; }
+.dty-ev tr.is-open > td { background: #f4f7fb; }
+.dty-ev tr.dty-ev__day > td { background: #fafbfc; }
+.dty-ev tr.dty-ev__day > td:first-child { padding-left: 30px; color: #393939; }
+@media (max-width: 720px) {
+  .dty-ev td[data-label]::before { content: attr(data-label) ': '; color: #66717d; font-weight: 600; }
+  .dty-ev .dty-ev__num { width: auto; text-align: left; }
+}

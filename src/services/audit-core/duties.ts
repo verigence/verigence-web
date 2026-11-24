@@ -144,6 +144,27 @@ export function getTeamDuties(mode: DutiesMode, tenantId: string, range: { from:
   return auditCoreRequest<TeamDuties>(`${base(mode, tenantId)}/team?${params.toString()}`, { accessToken, timeoutMs: 20_000 });
 }
 
+/** A day's gate register or cash ledger duty at a PC's outlets, by state (product owner 2026-11-24). */
+export type EvidenceDuty = {
+  done: number; late: number; notReceived: number; pending: number; notDone: number;
+  outlets?: Array<{ outletName: string; state: 'DONE' | 'LATE' | 'NOT_RECEIVED' | 'PENDING' | 'NOT_DONE';
+    amount: number | null; transactions: number | null; by: string | null }>;
+};
+export type EvidencePhotos = { drive: number; camera: number; unread: number };
+export type EvidenceDay = { date: string; gate: EvidenceDuty; cash: EvidenceDuty; statements: number; photos: EvidencePhotos };
+export type EvidencePc = {
+  actorId: string; name: string; outlets: string[];
+  summary: { gate: EvidenceDuty; cash: EvidenceDuty & { amount: number; transactions: number }; statements: number; photos: EvidencePhotos };
+  days: EvidenceDay[];
+};
+export type DutyEvidence = { from: string; to: string; today: string; days: string[]; pcs: EvidencePc[] };
+
+/** What each PC did, day by day: gate register, cash register, bank statements, photos. */
+export function getDutyEvidence(mode: DutiesMode, tenantId: string, range: { from: string; to: string }, accessToken?: string) {
+  const params = new URLSearchParams(range);
+  return auditCoreRequest<DutyEvidence>(`${base(mode, tenantId)}/evidence?${params.toString()}`, { accessToken, timeoutMs: 20_000 });
+}
+
 export function getDutyDefinitions(mode: DutiesMode, tenantId: string, accessToken?: string) {
   return auditCoreRequest<DutyDefinitions>(`${base(mode, tenantId)}/definitions`, { accessToken });
 }

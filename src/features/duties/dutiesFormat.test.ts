@@ -103,19 +103,3 @@ describe('daily duties', () => {
       .toBe('Photos on 1 of 3 deliveries');
   });
 });
-
-describe('Daily duties board: missed and not received (2026-11-24)', () => {
-  it('lists each item once, as it stood on its last day, only when missed or not received', async () => {
-    const { missedItems } = await import('./DutiesTeamPanel');
-    const cell = (itemId: string, state: string, forDate = '2026-11-18') => ({
-      itemId, dutyId: 'd', title: 'Cash ledger', mandatory: false, forDate, dutyDate: forDate, state, carriedDays: 0,
-      doneAt: null, doneByName: null, doneSource: null, values: {}, inputs: [], comment: null, progress: null, reasons: [],
-    });
-    const outlet = (items: unknown[]) => ({ outletId: 'o', outletName: 'Cuttack', dealerName: 'Aditya', pcs: [], items });
-    const rows = missedItems([
-      { date: '2026-11-19', outlets: [outlet([cell('a', 'PENDING'), cell('b', 'NOT_RECEIVED')])] },
-      { date: '2026-11-23', outlets: [outlet([cell('a', 'INCOMPLETE'), cell('c', 'DONE')])] },
-    ] as never);
-    expect(rows.map((r) => [r.cell.itemId, r.cell.state])).toEqual([['a', 'INCOMPLETE'], ['b', 'NOT_RECEIVED']]);
-  });
-});

@@ -71,3 +71,32 @@ describe('P2DataUploadsPage: a dump opened from the model-differs alert', () => 
     expect(html).not.toContain('Model Differs Customer');
   });
 });
+
+describe('P2DataUploadsPage: rows to correct in the dealership\'s sheet (24 Nov 2026)', () => {
+  function renderWith(sheetIssueRows: DmsDump['sheetIssueRows']): string {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['dms-dump', 't1', 'd1'], { ...dump, sheetIssues: sheetIssueRows?.length ?? 0, sheetIssueRows, items });
+    return renderToString(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/p2/data-uploads?type=delivery&dumpId=d1&view=rows']}><P2DataUploadsPage /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('lists each row with its Excel row, column, value and what is wrong', () => {
+    const html = renderWith([
+      { sheetRow: 95, customer: 'Shri Babula Dehuri', chassis: 'T6K14763', field: 'BOOKING DATE', value: '7/20/0025', issue: 'is not a date' },
+      { sheetRow: 2, customer: 'M/s.Tridev Associates', chassis: 'T6K14760', field: 'BOOKING DATE', value: '23 Nov 2026',
+        issue: 'is after the DELIVERY DATE 01 Nov 2026' },
+    ]);
+    expect(html).toContain('to correct in the dealership&#x27;s sheet');
+    expect(html).toContain('Shri Babula Dehuri');
+    expect(html).toContain('7/20/0025');
+    expect(html).toContain('is after the DELIVERY DATE 01 Nov 2026');
+    expect(html).toContain('>95<');
+  });
+
+  it('shows nothing when the sheet has no row to correct', () => {
+    expect(renderWith([])).not.toContain('to correct in the dealership');
+  });
+});

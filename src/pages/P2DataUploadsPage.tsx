@@ -155,7 +155,8 @@ export default function P2DataUploadsPage() {
       update(p.id, { state: 'uploading', message: undefined });
       try {
         const dump = await uploadDmsDump(tenantId!, { file: p.file, dealerId: p.dealerId, businessDate: p.date, kind: p.kind || undefined }, accessToken);
-        update(p.id, { state: 'done', message: `${dump.kind === 'BOOKING' ? 'Booking' : 'Delivery'} dump · ${dump.rows} rows · ${dump.missing} not in Verigence${dump.kind === 'DELIVERY' ? ` · ${dump.notInTool} delivery not uploaded` : ''}` });
+        const toCorrect = dump.sheetIssues ? ` · ${dump.sheetIssues} row${dump.sheetIssues === 1 ? '' : 's'} to correct in the sheet` : '';
+        update(p.id, { state: 'done', message: `${dump.kind === 'BOOKING' ? 'Booking' : 'Delivery'} dump · ${dump.rows} rows · ${dump.missing} not in Verigence${dump.kind === 'DELIVERY' ? ` · ${dump.notInTool} delivery not uploaded` : ''}${toCorrect}` });
       } catch (cause) {
         update(p.id, { state: 'failed', message: cause instanceof Error ? cause.message : 'Could not be uploaded.' });
       }
@@ -382,6 +383,7 @@ export default function P2DataUploadsPage() {
                   <th className="num">Not in Verigence</th><th className="num">Delivery not uploaded</th>
                   <th className="num" title="Matched on the booking no. / OTF or chassis, a different model in Verigence">Model differs</th>
                   <th className="num" title="Dates taken from the DMS onto the journeys' papers">Dates from DMS</th>
+                  <th className="num" title="Rows the dealership is to correct in its sheet: dates not read, booked after delivered, dated after the dump">To correct</th>
                   <th>Uploaded</th><th>Status</th>
                 </tr>
               </thead>
@@ -398,6 +400,7 @@ export default function P2DataUploadsPage() {
                     <td className="num">{d.kind === 'DELIVERY' ? (d.notInTool ? <span className="p2du-tag p2du-tag--warn">{d.notInTool}</span> : 0) : '—'}</td>
                     <td className="num">{d.modelDiffers ? <span className="p2du-tag p2du-tag--warn">{d.modelDiffers}</span> : 0}</td>
                     <td className="num">{d.datesFromDms ?? 0}</td>
+                    <td className="num">{d.sheetIssues ? <span className="p2du-tag p2du-tag--warn">{d.sheetIssues}</span> : 0}</td>
                     <td><span title={d.fileName}>{d.uploadedBy}</span><br /><small className="p2w-muted">{when(d.uploadedAtUtc)}</small></td>
                     <td>{d.status === 'ACTIVE' ? <span className="p2du-tag p2du-tag--ok">Current</span> : <span className="p2du-tag">Replaced</span>}</td>
                   </tr>
@@ -427,6 +430,33 @@ export default function P2DataUploadsPage() {
                 ) : null}
               </div>
             </header>
+            {detail.data.sheetIssueRows?.length ? (
+              <div className="p2du-sheet-issues">
+                <div className="p2w-alert p2w-alert--review" role="status">
+                  <span><strong>{detail.data.sheetIssueRows.length} row{detail.data.sheetIssueRows.length === 1 ? '' : 's'} to correct in the dealership&apos;s sheet.</strong>{' '}
+                    A date that could not be read is left empty, not guessed: correct the sheet and upload it again.</span>
+                </div>
+                <div className="p2du-scroll">
+                  <table className="p2du-table">
+                    <thead>
+                      <tr><th className="num">Excel row</th><th>Customer</th><th>Chassis</th><th>Column</th><th>Value</th><th>What is wrong</th></tr>
+                    </thead>
+                    <tbody>
+                      {detail.data.sheetIssueRows.map((i, n) => (
+                        <tr key={`${i.sheetRow ?? 'x'}:${i.field}:${n}`}>
+                          <td className="num">{i.sheetRow ?? '—'}</td>
+                          <td>{i.customer ?? '—'}</td>
+                          <td>{i.chassis ?? '—'}</td>
+                          <td>{i.field}</td>
+                          <td>{i.value || '—'}</td>
+                          <td>{i.issue}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             <div className="p2du-toolbar">
               <div className="p2du-switcher" role="tablist" aria-label="Rows">
                 {(['MISSING', ...(detail.data.kind === 'DELIVERY' ? ['NOT_IN_TOOL', 'NOT_IN_DMS'] : []), 'MATCHED',

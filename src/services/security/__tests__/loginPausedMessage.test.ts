@@ -11,4 +11,10 @@ describe('sign-in message for paused access', () => {
     expect(loginErrorMessage(new SecurityLoginError('Verigence access is paused', 403, 'ACCESS_BLOCKED')))
       .toBe('Your Verigence access is paused. Ask SuperAdmin to restore it.');
   });
+
+  it('says Verigence is closed, and until when, instead of asking to check the details', () => {
+    const closed = 'Verigence is closed until 8:00 am. It opens by itself at that time.';
+    expect(loginErrorMessage(new SecurityLoginError(closed, 403, 'SYSTEM_CLOSED'))).toBe(closed);
+    expect(loginErrorMessage(new SecurityLoginError('', 403, 'SYSTEM_CLOSED'))).toMatch(/closed/);
+  });
 });

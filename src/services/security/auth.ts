@@ -216,6 +216,9 @@ export function loginErrorMessage(error: unknown): string {
       return error.message && !/^Verigence access is paused$/i.test(error.message)
         ? error.message
         : 'Your Verigence access is paused. Ask SuperAdmin to restore it.';
+    case 'SYSTEM_CLOSED':
+      // Shut for the night (or by SuperAdmin): Security says until when it opens.
+      return error.message || 'Verigence is closed for now. It opens by itself at 8:00 am.';
     case 'USER_NOT_ONBOARDED':
       return 'This account is not registered with Verigence.';
     case 'USER_PENDING_APPROVAL':

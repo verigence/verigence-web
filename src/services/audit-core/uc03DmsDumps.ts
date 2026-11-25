@@ -129,6 +129,10 @@ export const DMS_MATCH_BASIS: Record<string, string> = {
   ENQUIRY_NUMBER: 'Enquiry number',
   CHASSIS: 'Chassis',
   MOBILE: 'Mobile',
+  // A booking matched on two things agreeing (2026-11-24).
+  NEAR_BOOKING_NUMBER: 'OTF a digit or two off + name',
+  MOBILE_NAME: 'Mobile + name',
+  MOBILE_DATE: 'Mobile + booking date',
   NAME_DATE: 'Name + booking date',
   NAME_MODEL: 'Name + model',
   NAME_NEAR_ID: 'Name + mobile / booking no. a digit or two off',

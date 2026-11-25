@@ -8,17 +8,26 @@ import { addDays, dayLabel, istToday } from './dutiesFormat';
 
 const rupees = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 
-/** A gate register or cash register over a range: days done of days due. */
-function DutyTotal({ duty, money }: { duty: EvidenceDuty & { amount?: number; transactions?: number }; money?: boolean }) {
-  const due = duty.done + duty.late + duty.notDone + duty.notReceived;
-  if (due === 0) return <span className="dty-muted">{duty.pending ? 'Today, pending' : '—'}</span>;
+/**
+ * A gate register or cash register over the range. One outlet: days done of days due. Several
+ * outlets: registers done of registers due, with the outlets and days it is made of.
+ */
+function DutyTotal({ duty, outlets, money }: {
+  duty: EvidenceDuty & { amount?: number; transactions?: number }; outlets: number; money?: boolean;
+}) {
+  const noCounts = duty.noCounts ?? 0;
+  const due = duty.done + duty.late + noCounts + duty.notDone + duty.notReceived;
+  if (due === 0) return <span className="dty-muted">{duty.pending ? 'Not due yet' : '—'}</span>;
   const entered = duty.done + duty.late;
   const tone = entered === 0 ? 'bad' : entered < due - duty.notReceived ? 'warn' : 'ok';
+  const unit = outlets > 1 ? 'registers' : 'days';
   return (
     <span className="dty-ev__stack">
-      <span className={`dty-tag dty-tag--${tone}`}>{entered} of {due} days</span>
+      <span className={`dty-tag dty-tag--${tone}`}>{entered} of {due} {unit}</span>
+      {outlets > 1 && duty.days ? <small>{outlets} outlets × {duty.days} days</small> : null}
       {money && entered ? <small>₹{rupees.format(duty.amount ?? 0)} · {duty.transactions ?? 0} txns</small> : null}
-      {duty.late ? <small>{duty.late} late</small> : null}
+      {duty.late ? <small>{duty.late} uploaded late</small> : null}
+      {noCounts ? <small>{noCounts} {noCounts === 1 ? 'register' : 'registers'} without counts</small> : null}
       {duty.notReceived ? <small>{duty.notReceived} not received</small> : null}
     </span>
   );
@@ -32,8 +41,8 @@ function DutyDay({ duty, money }: { duty: EvidenceDuty; money?: boolean }) {
     <span className="dty-ev__stack">
       {outlets.map((o, i) => {
         const [label, tone] = {
-          DONE: ['Done', 'ok'], LATE: ['Done late', 'info'], NOT_RECEIVED: ['Not received', 'warn'],
-          PENDING: ['Pending', ''], NOT_DONE: ['Not done', 'bad'],
+          DONE: ['Done', 'ok'], LATE: ['Done late', 'info'], NO_COUNTS: ['Counts not entered', 'warn'],
+          NOT_RECEIVED: ['Not received', 'warn'], PENDING: ['Not due yet', ''], NOT_DONE: ['Not done', 'bad'],
         }[o.state];
         return (
           <span key={`${o.outletName}-${i}`}>
@@ -56,7 +65,7 @@ function Photos({ photos }: { photos: EvidencePhotos }) {
   return (
     <>
       <td data-label="Drive photo folder" className="dty-ev__num"><Count n={photos.drive} /></td>
-      <td data-label="App camera" className="dty-ev__num"><Count n={photos.camera} /></td>
+      <td data-label="Added in Verigence" className="dty-ev__num"><Count n={photos.camera} /></td>
       <td data-label="Unread pages kept" className="dty-ev__num"><Count n={photos.unread} /></td>
     </>
   );
@@ -72,8 +81,8 @@ function PcRows({ pc, open, onToggle }: { pc: EvidencePc; open: boolean; onToggl
           </button>
           <small className="dty-ev__outlets">{pc.outlets.join(', ')}</small>
         </td>
-        <td data-label="Gate register"><DutyTotal duty={pc.summary.gate} /></td>
-        <td data-label="Cash register"><DutyTotal duty={pc.summary.cash} money /></td>
+        <td data-label="Gate register"><DutyTotal duty={pc.summary.gate} outlets={pc.outlets.length} /></td>
+        <td data-label="Cash register"><DutyTotal duty={pc.summary.cash} outlets={pc.outlets.length} money /></td>
         <td data-label="Bank statements" className="dty-ev__num"><Count n={pc.summary.statements} /></td>
         <Photos photos={pc.summary.photos} />
       </tr>
@@ -122,9 +131,11 @@ export default function DutyEvidencePanel({ mode, tenantId, accessToken, initial
         <button type="button" className="uc01-admin-button" onClick={() => pick(addDays(today, -29), today)}>Last 30 days</button>
       </div>
       <p className="dty-hint">
-        Gate register and cash register: days done of the days due at the PC&apos;s outlets (a day still running is pending).
-        Bank statements and photos: what the PC uploaded. Photos come from the &quot;photo&quot; folder in a customer&apos;s Drive folder,
-        the app&apos;s camera, or are pages the system could not read and kept as photos.
+        Gate register: the registers uploaded, by the day each register is for, every day including Sunday; a day&apos;s
+        register is due the next day, later is late. Cash register: the ledger entered for each day, counted from the day
+        the cash duty started. A PC with several outlets is counted per outlet. Bank statements and photos: what the PC
+        uploaded; photos come from the &quot;photo&quot; folder in a customer&apos;s Drive folder, were added in Verigence
+        (camera or gallery), or are pages the system could not read and kept as photos.
       </p>
 
       {query.isLoading ? <div className="uc01-admin-state">Loading…</div> : null}
@@ -142,13 +153,17 @@ export default function DutyEvidencePanel({ mode, tenantId, accessToken, initial
               <tr>
                 <th scope="col" rowSpan={2}>PC</th>
                 <th scope="col" rowSpan={2} className="dty-ev__duty">Gate register</th>
-                <th scope="col" rowSpan={2} className="dty-ev__duty">Cash register</th>
+                <th scope="col" rowSpan={2} className="dty-ev__duty">
+                  Cash register
+                  {data.cashFrom && data.cashFrom > data.from
+                    ? <small className="dty-ev__since">Counted from {dayLabel(data.cashFrom)}</small> : null}
+                </th>
                 <th scope="col" rowSpan={2} className="dty-ev__num">Bank statements</th>
                 <th scope="colgroup" colSpan={3} className="dty-ev__group">Photos</th>
               </tr>
               <tr>
                 <th scope="col" className="dty-ev__num">Drive photo folder</th>
-                <th scope="col" className="dty-ev__num">App camera</th>
+                <th scope="col" className="dty-ev__num">Added in Verigence</th>
                 <th scope="col" className="dty-ev__num">Unread pages kept</th>
               </tr>
             </thead>

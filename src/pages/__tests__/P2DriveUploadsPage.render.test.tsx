@@ -82,7 +82,20 @@ const freeUp: DriveFreeUp = {
         takenAtUtc: '2026-11-20T15:40:00Z', url: 'https://drive.google.com/file/d/d2/view' },
     ],
   },
+  myLink: { status: 'NOT_LINKED', googleEmail: null, linkedAtUtc: null, problem: null, otherAccount: null,
+    handedOver: { files: 0, bytes: 0 } },
 };
+
+function renderStorage(data: DriveFreeUp): string {
+  const client = new QueryClient();
+  client.setQueryData(['p2-drive-connection', 't1'], connection);
+  client.setQueryData(['p2-drive-runs', 't1'], runs);
+  client.setQueryData(['p2-drive-waiting', 't1'], waiting);
+  client.setQueryData(['p2-drive-free-up', 't1', ''], data);
+  return renderToString(
+    <QueryClientProvider client={client}><MemoryRouter initialEntries={['/p2/drive-uploads?view=storage']}><P2DriveUploadsPage /></MemoryRouter></QueryClientProvider>,
+  ).replaceAll('<!-- -->', '');
+}
 
 function renderAt(at: string, link: DriveConnection): string {
   return render(link, at);
@@ -201,16 +214,23 @@ describe('Drive uploads page', () => {
     expect(admin).toContain('Open the Project’s folder');
   });
 
-  it('lists a PC’s Drive files that are safe to delete, to free their own Google storage', () => {
+  it('lets a PC connect their Google account and free up their storage from Verigence', () => {
     role.value = 'PC';
     const html = render(connection, '/p2/drive-uploads?view=storage');
     expect(html).toContain('Free up Google storage');
+    expect(html).toContain('Connect my Google account');
+    expect(html).toContain('the files stay in the same folders, and your storage is freed');
     expect(html).toContain('3 MB');
-    expect(html).toContain('2 files in ravi@gmail.com');
+    expect(html).toContain('2 files taken by Verigence, still in your storage');
     expect(html).toContain('href="https://drive.google.com/file/d/d1/view"');
     expect(html).toContain('Bimal-778899');
-    expect(html).toContain('empty Drive’s Bin');
-    expect(html).toContain('Check again');
+    expect(html).not.toContain('Move to bin');
+    const linked = renderStorage({ ...freeUp, myLink: { ...freeUp.myLink!, status: 'LINKED', googleEmail: 'ravi@gmail.com',
+      handedOver: { files: 404, bytes: 3.4 * 1024 ** 3 } } });
+    expect(linked).toContain('connected as ravi@gmail.com');
+    expect(linked).toContain('404 files (3.4 GB)');
+    expect(linked).toContain('Free up my storage now');
+    expect(linked).not.toContain('Connect my Google account');
     expect(storageSize(3.4 * 1024 ** 3)).toBe('3.4 GB');
     expect(storageSize(40 * 1024)).toBe('40 KB');
   });

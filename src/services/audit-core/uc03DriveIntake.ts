@@ -189,9 +189,21 @@ export type DriveFreeUpList = {
   googleEmail: string | null; files: number; bytes: number; items: DriveFreeUpItem[];
   notYet: { files: number; bytes: number }; lastCheckedAtUtc: string | null;
 };
-export type DriveFreeUpPc = { actorId: string | null; name: string | null; googleEmail: string; files: number; bytes: number };
+export type DriveLinkStatus = 'NOT_LINKED' | 'LINKED' | 'LOST';
+export type DriveFreeUpPc = {
+  actorId: string | null; name: string | null; googleEmail: string; files: number; bytes: number; linkStatus?: DriveLinkStatus;
+};
+/**
+ * The PC's own Google account as Verigence holds it (product owner 2026-11-26, option b): once
+ * connected, Verigence moves the files it has taken to the Project's account -- they stay in the
+ * same folders -- so the PC's own storage is freed without them doing anything in Google Drive.
+ */
+export type DriveMyLink = {
+  status: DriveLinkStatus; googleEmail: string | null; linkedAtUtc: string | null; problem: string | null;
+  otherAccount: string | null; handedOver: { files: number; bytes: number };
+};
 export type DriveFreeUp = {
-  connected: boolean; account: string | null; mine: DriveFreeUpList;
+  connected: boolean; account: string | null; mine: DriveFreeUpList; myLink?: DriveMyLink;
   /** A lead: each PC of their outlets, and one PC's list when asked for. */
   pcs?: DriveFreeUpPc[]; pc?: DriveFreeUpList & { actorId: string };
 };
@@ -205,6 +217,21 @@ export function getDriveFreeUp(tenantId: string, accessToken?: string, actorId?:
 export function checkDriveFreeUp(tenantId: string, accessToken?: string) {
   return auditCoreRequest<{ checked: number; mine: DriveFreeUpList }>(`${base(tenantId)}/drive/free-up/check`,
     { method: 'POST', accessToken });
+}
+
+export function connectMyGoogle(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<{ authUrl: string }>(`${base(tenantId)}/drive/my-google/connect`, { method: 'POST', accessToken });
+}
+
+export type DriveHandOver = { handedOver: number; bytes: number; failed: number; left: number; lost: number; myLink: DriveMyLink };
+
+/** "Free up my storage": the next batch of the caller's taken files moved to the Project's account. */
+export function freeUpMyStorage(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<DriveHandOver>(`${base(tenantId)}/drive/my-google/free-up`, { method: 'POST', accessToken });
+}
+
+export function disconnectMyGoogle(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<DriveMyLink>(`${base(tenantId)}/drive/my-google`, { method: 'DELETE', accessToken });
 }
 
 /** "3.4 GB", "512 MB", "40 KB". */
@@ -238,6 +265,11 @@ export const DRIVE_RETURN_MESSAGES: Record<string, { text: string; ok: boolean }
   expired: { text: 'The approval took too long. Press Connect Google Drive again.', ok: false },
   'no-offline-access': { text: 'Google did not give ongoing access. Press Connect Google Drive again and allow it.', ok: false },
   failed: { text: 'Google Drive could not be connected. Try again; if it repeats, tell the administrator.', ok: false },
+  'pc-connected': { text: 'Your Google account is connected. Verigence now moves your Drive uploads it has taken to the JBR account, freeing your storage.', ok: true },
+  'pc-declined': { text: 'The approval was not given on Google’s screen. Your Google account is not connected.', ok: false },
+  'pc-no-offline-access': { text: 'Google did not give ongoing access. Press Connect my Google account again and allow it.', ok: false },
+  'pc-project-account': { text: 'That is the Project’s own Google account. Connect the Google account you upload to Drive with.', ok: false },
+  'pc-failed': { text: 'Your Google account could not be connected. Try again; if it repeats, tell your Team Lead.', ok: false },
 };
 
 export function driveRunInProgress(run: DriveRun): boolean {

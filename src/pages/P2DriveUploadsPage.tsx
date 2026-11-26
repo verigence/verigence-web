@@ -32,10 +32,13 @@ import {
   type DriveListedFile,
   type DriveRun,
   type DriveTotals,
-  checkDriveFreeUp,
+  connectMyGoogle,
+  disconnectMyGoogle,
+  freeUpMyStorage,
   getDriveFreeUp,
   storageSize,
   type DriveFreeUpList,
+  type DriveMyLink,
 } from '../services/audit-core/uc03DriveIntake';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import { selectOperationalProject } from '../features/uc03/projectContext';
@@ -51,9 +54,10 @@ const DRIVE_VIEWS: { key: DriveView; label: string }[] = [
 ];
 
 /**
- * The files safe to delete from Drive (product owner 2026-11-26, "lets go with 2"): a file a PC
- * puts in the outlet's folder uses the PC's own Google storage, and only its owner can delete it.
- * Verigence keeps its own copy of every file it has taken, so these can go.
+ * The PC's Drive uploads still in their own Google storage (product owner 2026-11-26): in a plain
+ * Google account a file uses the storage of whoever put it in Drive. Once the PC connects their
+ * Google account, Verigence moves each file it has taken to the JBR account -- the file stays in
+ * its folder -- after every run and when the PC presses "Free up my storage".
  */
 function FreeUpList({ list, own }: { list: DriveFreeUpList; own: boolean }) {
   const folders = new Map<string, DriveFreeUpList['items']>();
@@ -65,38 +69,30 @@ function FreeUpList({ list, own }: { list: DriveFreeUpList; own: boolean }) {
     <div className="screen-stack">
       <section className="p2du-tiles" aria-label="Google storage">
         <div className={`p2du-tile${list.files ? ' p2du-tile--warn' : ' p2du-tile--ok'}`}>
-          <span>Safe to delete</span>
+          <span>Ready to move to JBR</span>
           <strong>{storageSize(list.bytes)}</strong>
-          <small>{plural(list.files, 'file')}{list.googleEmail ? ` in ${list.googleEmail}` : ''}</small>
+          <small>{plural(list.files, 'file')} taken by Verigence, still in {own ? 'your' : 'the PC’s'} storage</small>
         </div>
         <div className="p2du-tile">
-          <span>Keep for now</span>
+          <span>Not taken yet</span>
           <strong>{storageSize(list.notYet.bytes)}</strong>
-          <small>{plural(list.notYet.files, 'file')} not yet taken by Verigence</small>
+          <small>{plural(list.notYet.files, 'file')} — moved after the run takes them</small>
         </div>
         <div className="p2du-tile">
           <span>Last checked</span>
           <strong>{list.lastCheckedAtUtc ? when(list.lastCheckedAtUtc) : '—'}</strong>
-          <small>Files deleted since then still show until checked</small>
+          <small>{list.googleEmail ?? 'No Google account on record'}</small>
         </div>
       </section>
       {list.files ? (
-        <div className="p2bu-notice" role="note">
-          {own ? 'Your' : 'These'} Drive uploads use {own ? 'your' : 'the PC’s'} own Google storage, not the Project’s.
-          Verigence already keeps its own copy of every file listed here, so deleting them from Drive changes nothing in
-          Verigence. Open each file, delete it (Remove / Move to bin), then <strong>empty Drive’s Bin</strong> — the space is
-          freed only then. Keep the customer’s folder itself, so later files still go to the same booking.
-        </div>
-      ) : <p className="p2w-empty">Nothing to delete: no file in Drive that Verigence has already taken.</p>}
-      {list.files ? (
         <div className="p2du-scroll">
           <table className="p2du-table p2du-table--stack">
-            <thead><tr><th>Customer folder</th><th>Files safe to delete</th><th className="num">Size</th></tr></thead>
+            <thead><tr><th>Customer folder</th><th>Files still in {own ? 'your' : 'the PC’s'} storage</th><th className="num">Size</th></tr></thead>
             <tbody>
               {[...folders.entries()].map(([folder, items]) => (
                 <tr key={folder}>
                   <td data-label="Customer folder"><strong>{folder || 'Files in no customer folder'}</strong></td>
-                  <td data-label="Files safe to delete">
+                  <td data-label="Files">
                     {items.map((item) => (
                       <div key={item.url}>
                         <a className="p2w-link" href={item.url} target="_blank" rel="noreferrer">{item.fileName}</a>
@@ -110,7 +106,65 @@ function FreeUpList({ list, own }: { list: DriveFreeUpList; own: boolean }) {
             </tbody>
           </table>
         </div>
-      ) : null}
+      ) : <p className="p2w-empty">Nothing of {own ? 'yours' : 'the PC’s'} is left to move: Verigence’s files are all in the JBR account.</p>}
+    </div>
+  );
+}
+
+/** The PC's own Google account: connect it once, then free up the storage from here. */
+function MyGoogleAccount({ link, busy, freeing, onConnect, onFreeUp, onDisconnect }: {
+  link: DriveMyLink; busy: boolean; freeing: string | null; onConnect: () => void; onFreeUp: () => void; onDisconnect: () => void;
+}) {
+  const linked = link.status === 'LINKED';
+  return (
+    <div className="p2bu-result">
+      <p><strong>Your Google storage</strong>
+        {linked && link.googleEmail ? <span className="p2w-muted"> · connected as {link.googleEmail}</span> : null}
+      </p>
+      {linked ? (
+        <>
+          <p className="p2w-muted">
+            Moved to the JBR account so far: <strong>{plural(link.handedOver.files, 'file')} ({storageSize(link.handedOver.bytes)})</strong>.
+            The files stay in the same Drive folders; they no longer use your storage. This also happens by itself after every Drive run.
+          </p>
+          {link.otherAccount ? (
+            <div className="p2w-alert p2w-alert--error" role="alert">
+              Your Drive folders are shared with {link.otherAccount}, but you connected {link.googleEmail}. Files you upload
+              with {link.otherAccount} cannot be moved: connect that account instead.
+            </div>
+          ) : null}
+          {freeing ? <p className="p2bu-notice" role="status">{freeing}</p> : null}
+          <div className="p2bu-actions">
+            <button type="button" className="p2w-button p2w-button--primary" disabled={busy} onClick={onFreeUp}>
+              Free up my storage now
+            </button>
+            <button type="button" className="p2w-button p2w-button--ghost" disabled={busy} onClick={onDisconnect}>
+              Disconnect
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {link.status === 'LOST' ? (
+            <div className="p2w-alert p2w-alert--error" role="alert">
+              Google no longer accepts your approval (it was taken back or has lapsed). Connect your Google account again.
+            </div>
+          ) : null}
+          <p className="p2w-muted">
+            Files you put in Drive use your own Google storage. Connect your Google account once, and Verigence moves every
+            file it has taken to the JBR account: the files stay in the same folders, and your storage is freed. Nothing is deleted.
+          </p>
+          <p className="p2w-muted">
+            Google opens its own sign-in. It may say “Google hasn’t verified this app”: tap <strong>Advanced</strong>, then
+            {' '}<strong>Go to Verigence</strong>, and allow. Verigence only moves the files it has taken from the Project’s folders.
+          </p>
+          <div className="p2bu-actions">
+            <button type="button" className="p2w-button p2w-button--primary" disabled={busy} onClick={onConnect}>
+              Connect my Google account
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -566,9 +620,32 @@ export default function P2DriveUploadsPage() {
       ? `Shared with ${access.googleEmail}. Google has emailed you the link; the folders are also listed here.`
       : 'Google could not share the folders just now. Try again in a few minutes.';
   });
-  const checkAgain = () => act(async () => {
-    const { checked, mine } = await checkDriveFreeUp(tenantId!, accessToken);
-    return `Checked ${plural(checked, 'file')} in Drive: ${plural(mine.files, 'file')} (${storageSize(mine.bytes)}) safe to delete.`;
+  const [freeing, setFreeing] = useState<string | null>(null);
+  const connectGoogle = () => act(async () => {
+    const { authUrl } = await connectMyGoogle(tenantId!, accessToken);
+    window.location.assign(authUrl);
+    return null;
+  });
+  const disconnectGoogle = () => act(async () => {
+    await disconnectMyGoogle(tenantId!, accessToken);
+    return 'Your Google account is disconnected. Files already moved stay in the JBR account.';
+  });
+  // A batch a call, until nothing taken is left in the PC's storage.
+  const freeUpNow = () => act(async () => {
+    let files = 0;
+    let bytes = 0;
+    for (let round = 0; round < 40; round += 1) {
+      const done = await freeUpMyStorage(tenantId!, accessToken);
+      files += done.handedOver;
+      bytes += done.bytes;
+      setFreeing(`Moving to the JBR account… ${plural(files, 'file')} (${storageSize(bytes)}) so far.`);
+      if (done.lost) throw new Error('Google no longer accepts your approval. Connect your Google account again.');
+      if (!done.left || !done.handedOver) break;
+    }
+    setFreeing(null);
+    return files
+      ? `Done: ${plural(files, 'file')} (${storageSize(bytes)}) moved to the JBR account. Google may take a day or two to show the freed space.`
+      : 'Nothing to move right now: every file Verigence has taken is already in the JBR account.';
   });
   const saveSettings = (settings: Parameters<typeof setDriveSettings>[1]) => act(async () => {
     await setDriveSettings(tenantId!, settings, accessToken);
@@ -785,7 +862,8 @@ export default function P2DriveUploadsPage() {
                             <option value="">My own files</option>
                             {freeUp.data.pcs.filter((p) => p.actorId).map((p) => (
                               <option key={p.actorId!} value={p.actorId!}>
-                                {p.name ?? p.googleEmail} · {storageSize(p.bytes)} safe to delete
+                                {p.name ?? p.googleEmail} · {storageSize(p.bytes)} still in their storage
+                                {p.linkStatus === 'LINKED' ? '' : ' · not connected'}
                               </option>
                             ))}
                           </select>
@@ -794,15 +872,10 @@ export default function P2DriveUploadsPage() {
                     ) : null}
                     {freeUpPc && freeUp.data.pc ? <FreeUpList list={freeUp.data.pc} own={false} /> : (
                       <>
-                        {freeUp.data.mine.googleEmail ? (
-                          <div className="p2du-toolbar">
-                            <span className="p2w-muted">Deleted some already? Check again to take them off the list.</span>
-                            <div className="p2du-toolbar__end">
-                              <button type="button" className="p2w-button p2w-button--secondary" disabled={busy} onClick={() => void checkAgain()}>
-                                Check again
-                              </button>
-                            </div>
-                          </div>
+                        {freeUp.data.myLink ? (
+                          <MyGoogleAccount link={freeUp.data.myLink} busy={busy} freeing={freeing}
+                            onConnect={() => void connectGoogle()} onFreeUp={() => void freeUpNow()}
+                            onDisconnect={() => void disconnectGoogle()} />
                         ) : null}
                         {freeUp.data.mine.googleEmail || !freeUp.data.pcs ? <FreeUpList list={freeUp.data.mine} own /> : (
                           <p className="p2w-muted">Choose a PC to see the files they can delete from their Google Drive.</p>

@@ -159,9 +159,13 @@ export type P2JourneyCounts = Record<
   'all' | 'open' | 'closed' | 'booking_open' | 'delivery_open' | 'needs_action' | 'processing' | 'with_tl' | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck',
   number
 > & {
-  /** With a month on the business basis: journeys whose booking date / delivery date is in it. */
+  /** With a month on the business basis (2026-11-26): a Journey is a booking until it is a delivery.
+   * Bookings are the Journeys booked in the month and not yet a delivery; deliveries the ones whose
+   * delivery date is in it; the two never overlap. */
   bookings_in_month?: number;
   deliveries_in_month?: number;
+  /** Booked and delivered in the month: within `deliveries_in_month` (absent from an older Audit Core). */
+  converted_in_month?: number;
 };
 
 export type P2JourneyBreakdownRow = {

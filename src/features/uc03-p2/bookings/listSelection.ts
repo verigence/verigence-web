@@ -44,11 +44,12 @@ export function dealerAfterOutletPick(dealerId: string, outletId: string, outlet
 
 /**
  * What Bookings only / Deliveries only keep (2026-11-09), by the month figures' own dates:
- * a booking by its booking date, a delivery by its delivery date (started or delivered).
+ * a booking by its booking date while it is not yet a delivery (2026-11-26), a delivery by its
+ * delivery date (started or delivered).
  */
 export function kindHint(kind: P2JourneyKind, month: string): string {
   if (kind === 'booking') {
-    return month ? `Bookings only: booking date in ${monthLabel(month)}.` : 'Bookings only: every booking.';
+    return month ? `Bookings only: booking date in ${monthLabel(month)}, not yet a delivery.` : 'Bookings only: not yet a delivery.';
   }
   return month
     ? `Deliveries only: delivery date (started or delivered) in ${monthLabel(month)}.`

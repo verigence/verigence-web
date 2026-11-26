@@ -176,6 +176,44 @@ export function listWaitingDriveFiles(tenantId: string, accessToken?: string) {
   return auditCoreRequest<DriveFileList>(`${base(tenantId)}/drive/files?waitingOnly=true`, { accessToken, cache: 'no-store' });
 }
 
+/**
+ * A PC's own files in the Project's Drive that are safe to delete (2026-11-26). In a plain Google
+ * account a file uses the storage of whoever put it in Drive, so the PCs' uploads fill their own
+ * Google storage; Verigence keeps its own copy of every file it takes, so those can go from Drive.
+ */
+export type DriveFreeUpItem = {
+  fileName: string; kind: 'DOCUMENT' | 'PHOTO'; customerFolder: string | null; bytes: number;
+  uploadDate: string | null; takenAtUtc: string | null; url: string;
+};
+export type DriveFreeUpList = {
+  googleEmail: string | null; files: number; bytes: number; items: DriveFreeUpItem[];
+  notYet: { files: number; bytes: number }; lastCheckedAtUtc: string | null;
+};
+export type DriveFreeUpPc = { actorId: string | null; name: string | null; googleEmail: string; files: number; bytes: number };
+export type DriveFreeUp = {
+  connected: boolean; account: string | null; mine: DriveFreeUpList;
+  /** A lead: each PC of their outlets, and one PC's list when asked for. */
+  pcs?: DriveFreeUpPc[]; pc?: DriveFreeUpList & { actorId: string };
+};
+
+export function getDriveFreeUp(tenantId: string, accessToken?: string, actorId?: string | null) {
+  const query = actorId ? `?actorId=${encodeURIComponent(actorId)}` : '';
+  return auditCoreRequest<DriveFreeUp>(`${base(tenantId)}/drive/free-up${query}`, { accessToken, cache: 'no-store' });
+}
+
+/** "Check again": Verigence asks Drive now which of the caller's files are still there. */
+export function checkDriveFreeUp(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<{ checked: number; mine: DriveFreeUpList }>(`${base(tenantId)}/drive/free-up/check`,
+    { method: 'POST', accessToken });
+}
+
+/** "3.4 GB", "512 MB", "40 KB". */
+export function storageSize(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export const DRIVE_STATE_LABELS: Record<DriveFileState, { label: string; tone: 'ok' | 'warn' | 'bad' | 'open' }> = {
   WAITING: { label: 'Waiting to be taken', tone: 'open' },
   TAKEN: { label: 'Kept on the booking', tone: 'ok' },

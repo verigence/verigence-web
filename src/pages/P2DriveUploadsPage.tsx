@@ -32,18 +32,88 @@ import {
   type DriveListedFile,
   type DriveRun,
   type DriveTotals,
+  checkDriveFreeUp,
+  getDriveFreeUp,
+  storageSize,
+  type DriveFreeUpList,
 } from '../services/audit-core/uc03DriveIntake';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import { selectOperationalProject } from '../features/uc03/projectContext';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type DriveView = 'runs' | 'waiting' | 'setup';
+type DriveView = 'runs' | 'waiting' | 'storage' | 'setup';
 const DRIVE_VIEWS: { key: DriveView; label: string }[] = [
   { key: 'runs', label: 'Runs' },
   { key: 'waiting', label: 'Waiting in Drive' },
+  { key: 'storage', label: 'Free up Google storage' },
   { key: 'setup', label: 'Folders & settings' },
 ];
+
+/**
+ * The files safe to delete from Drive (product owner 2026-11-26, "lets go with 2"): a file a PC
+ * puts in the outlet's folder uses the PC's own Google storage, and only its owner can delete it.
+ * Verigence keeps its own copy of every file it has taken, so these can go.
+ */
+function FreeUpList({ list, own }: { list: DriveFreeUpList; own: boolean }) {
+  const folders = new Map<string, DriveFreeUpList['items']>();
+  for (const item of list.items) {
+    const key = item.customerFolder ?? '';
+    folders.set(key, [...(folders.get(key) ?? []), item]);
+  }
+  return (
+    <div className="screen-stack">
+      <section className="p2du-tiles" aria-label="Google storage">
+        <div className={`p2du-tile${list.files ? ' p2du-tile--warn' : ' p2du-tile--ok'}`}>
+          <span>Safe to delete</span>
+          <strong>{storageSize(list.bytes)}</strong>
+          <small>{plural(list.files, 'file')}{list.googleEmail ? ` in ${list.googleEmail}` : ''}</small>
+        </div>
+        <div className="p2du-tile">
+          <span>Keep for now</span>
+          <strong>{storageSize(list.notYet.bytes)}</strong>
+          <small>{plural(list.notYet.files, 'file')} not yet taken by Verigence</small>
+        </div>
+        <div className="p2du-tile">
+          <span>Last checked</span>
+          <strong>{list.lastCheckedAtUtc ? when(list.lastCheckedAtUtc) : '—'}</strong>
+          <small>Files deleted since then still show until checked</small>
+        </div>
+      </section>
+      {list.files ? (
+        <div className="p2bu-notice" role="note">
+          {own ? 'Your' : 'These'} Drive uploads use {own ? 'your' : 'the PC’s'} own Google storage, not the Project’s.
+          Verigence already keeps its own copy of every file listed here, so deleting them from Drive changes nothing in
+          Verigence. Open each file, delete it (Remove / Move to bin), then <strong>empty Drive’s Bin</strong> — the space is
+          freed only then. Keep the customer’s folder itself, so later files still go to the same booking.
+        </div>
+      ) : <p className="p2w-empty">Nothing to delete: no file in Drive that Verigence has already taken.</p>}
+      {list.files ? (
+        <div className="p2du-scroll">
+          <table className="p2du-table p2du-table--stack">
+            <thead><tr><th>Customer folder</th><th>Files safe to delete</th><th className="num">Size</th></tr></thead>
+            <tbody>
+              {[...folders.entries()].map(([folder, items]) => (
+                <tr key={folder}>
+                  <td data-label="Customer folder"><strong>{folder || 'Files in no customer folder'}</strong></td>
+                  <td data-label="Files safe to delete">
+                    {items.map((item) => (
+                      <div key={item.url}>
+                        <a className="p2w-link" href={item.url} target="_blank" rel="noreferrer">{item.fileName}</a>
+                        <small className="p2w-muted"> · {storageSize(item.bytes)}{item.kind === 'PHOTO' ? ' · photo' : ''}</small>
+                      </div>
+                    ))}
+                  </td>
+                  <td className="num" data-label="Size">{storageSize(items.reduce((n, i) => n + i.bytes, 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function when(value: string | null): string {
   if (!value) return '';
@@ -453,13 +523,20 @@ export default function P2DriveUploadsPage() {
     enabled: enabled && connected, refetchInterval: 60_000,
   });
 
+  const [freeUpPc, setFreeUpPc] = useState<string>('');
+  const freeUp = useQuery({
+    queryKey: ['p2-drive-free-up', tenantId, freeUpPc],
+    queryFn: () => getDriveFreeUp(tenantId!, accessToken, freeUpPc || null),
+    enabled: enabled && connected && params.get('view') === 'storage',
+  });
+
   async function act(work: () => Promise<string | null>) {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       setNotice(await work());
-      await Promise.all(['p2-drive-connection', 'p2-drive-runs', 'p2-drive-waiting'].map(
+      await Promise.all(['p2-drive-connection', 'p2-drive-runs', 'p2-drive-waiting', 'p2-drive-free-up'].map(
         (key) => queryClient.invalidateQueries({ queryKey: [key, tenantId] })));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'That could not be done.');
@@ -488,6 +565,10 @@ export default function P2DriveUploadsPage() {
     return shared
       ? `Shared with ${access.googleEmail}. Google has emailed you the link; the folders are also listed here.`
       : 'Google could not share the folders just now. Try again in a few minutes.';
+  });
+  const checkAgain = () => act(async () => {
+    const { checked, mine } = await checkDriveFreeUp(tenantId!, accessToken);
+    return `Checked ${plural(checked, 'file')} in Drive: ${plural(mine.files, 'file')} (${storageSize(mine.bytes)}) safe to delete.`;
   });
   const saveSettings = (settings: Parameters<typeof setDriveSettings>[1]) => act(async () => {
     await setDriveSettings(tenantId!, settings, accessToken);
@@ -689,6 +770,48 @@ export default function P2DriveUploadsPage() {
                 {waiting.data && !waitingFiles.length ? <p className="p2w-empty">Nothing is waiting to be taken.</p> : null}
                 {waitingFiles.length ? <WaitingTable files={waitingFiles} /> : null}
               </>
+            ) : null}
+
+            {view === 'storage' ? (
+              <div className="screen-stack">
+                {freeUp.isLoading ? <p className="p2w-muted">Loading…</p> : null}
+                {freeUp.isError ? <div className="p2w-alert p2w-alert--error" role="alert">The list could not be loaded. Try again.</div> : null}
+                {freeUp.data ? (
+                  <>
+                    {freeUp.data.pcs ? (
+                      <div className="p2du-toolbar">
+                        <label htmlFor="p2dr-free-pc">PC
+                          <select id="p2dr-free-pc" value={freeUpPc} onChange={(e) => setFreeUpPc(e.target.value)}>
+                            <option value="">My own files</option>
+                            {freeUp.data.pcs.filter((p) => p.actorId).map((p) => (
+                              <option key={p.actorId!} value={p.actorId!}>
+                                {p.name ?? p.googleEmail} · {storageSize(p.bytes)} safe to delete
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    ) : null}
+                    {freeUpPc && freeUp.data.pc ? <FreeUpList list={freeUp.data.pc} own={false} /> : (
+                      <>
+                        {freeUp.data.mine.googleEmail ? (
+                          <div className="p2du-toolbar">
+                            <span className="p2w-muted">Deleted some already? Check again to take them off the list.</span>
+                            <div className="p2du-toolbar__end">
+                              <button type="button" className="p2w-button p2w-button--secondary" disabled={busy} onClick={() => void checkAgain()}>
+                                Check again
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                        {freeUp.data.mine.googleEmail || !freeUp.data.pcs ? <FreeUpList list={freeUp.data.mine} own /> : (
+                          <p className="p2w-muted">Choose a PC to see the files they can delete from their Google Drive.</p>
+                        )}
+                      </>
+                    )}
+                  </>
+                ) : null}
+              </div>
             ) : null}
 
             {view === 'setup' ? (

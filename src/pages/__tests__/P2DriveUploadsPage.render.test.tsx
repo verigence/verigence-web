@@ -7,6 +7,8 @@ import P2DriveUploadsPage, { RunReportTable } from '../P2DriveUploadsPage';
 import {
   clockTime,
   rescanPages,
+  storageSize,
+  type DriveFreeUp,
   type DriveConnection,
   type DriveFileList,
   type DriveRunList,
@@ -68,6 +70,20 @@ const waiting: DriveFileList = {
   ],
 };
 
+const freeUp: DriveFreeUp = {
+  connected: true, account: 'project@example.com',
+  mine: {
+    googleEmail: 'ravi@gmail.com', files: 2, bytes: 3 * 1024 ** 2, notYet: { files: 1, bytes: 1024 ** 2 },
+    lastCheckedAtUtc: '2026-11-26T04:00:00Z',
+    items: [
+      { fileName: 'docket.pdf', kind: 'DOCUMENT', customerFolder: 'Bimal-778899', bytes: 2 * 1024 ** 2, uploadDate: '2026-11-20',
+        takenAtUtc: '2026-11-20T15:40:00Z', url: 'https://drive.google.com/file/d/d1/view' },
+      { fileName: 'car.jpg', kind: 'PHOTO', customerFolder: 'Bimal-778899', bytes: 1024 ** 2, uploadDate: '2026-11-20',
+        takenAtUtc: '2026-11-20T15:40:00Z', url: 'https://drive.google.com/file/d/d2/view' },
+    ],
+  },
+};
+
 function renderAt(at: string, link: DriveConnection): string {
   return render(link, at);
 }
@@ -77,6 +93,7 @@ function render(link: DriveConnection = connection, at = '/p2/drive-uploads'): s
   client.setQueryData(['p2-drive-connection', 't1'], link);
   client.setQueryData(['p2-drive-runs', 't1'], runs);
   client.setQueryData(['p2-drive-waiting', 't1'], waiting);
+  client.setQueryData(['p2-drive-free-up', 't1', ''], freeUp);
   return renderToString(
     <QueryClientProvider client={client}><MemoryRouter initialEntries={[at]}><P2DriveUploadsPage /></MemoryRouter></QueryClientProvider>,
   ).replaceAll('<!-- -->', '');
@@ -182,6 +199,20 @@ describe('Drive uploads page', () => {
       { actorId: 'a2', name: 'Sita', googleEmail: null, folders: [{ ...folder, shared: false }] }] });
     expect(admin).toContain('1 of 2 have their folders');
     expect(admin).toContain('Open the Project’s folder');
+  });
+
+  it('lists a PC’s Drive files that are safe to delete, to free their own Google storage', () => {
+    role.value = 'PC';
+    const html = render(connection, '/p2/drive-uploads?view=storage');
+    expect(html).toContain('Free up Google storage');
+    expect(html).toContain('3 MB');
+    expect(html).toContain('2 files in ravi@gmail.com');
+    expect(html).toContain('href="https://drive.google.com/file/d/d1/view"');
+    expect(html).toContain('Bimal-778899');
+    expect(html).toContain('empty Drive’s Bin');
+    expect(html).toContain('Check again');
+    expect(storageSize(3.4 * 1024 ** 3)).toBe('3.4 GB');
+    expect(storageSize(40 * 1024)).toBe('40 KB');
   });
 
   it('names the pages to scan again', () => {

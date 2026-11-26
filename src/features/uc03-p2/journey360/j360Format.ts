@@ -25,6 +25,28 @@ export function balanceText(value: string | number | null | undefined): string {
   return amount > 0 ? `${formatInr(amount)} due` : `${formatInr(Math.abs(amount))} excess received`;
 }
 
+/** The receipts the Payments tab lists: only what is counted (product owner
+ * 2026-11-26: "lets show what is being counted"). A copy of a receipt already
+ * on file, a removed document and a receipt taken out as another customer's
+ * count nothing; they are not listed. */
+export function countedReceipts<T extends { counted: boolean }>(items: T[]): T[] {
+  return items.filter((item) => item.counted);
+}
+
+/** One line for the receipts on file that are not listed because they count
+ * nothing, by why; null when every receipt on file is counted. */
+export function notCountedLine(items: { counted: boolean; duplicateOf?: string | null }[]): string | null {
+  const left = items.filter((item) => !item.counted);
+  if (!left.length) return null;
+  const copies = left.filter((item) => item.duplicateOf).length;
+  const other = left.length - copies;
+  const parts = [
+    copies ? `${copies} ${copies === 1 ? 'copy' : 'copies'} of a receipt already listed` : null,
+    other ? `${other} removed or not this customer's` : null,
+  ].filter(Boolean);
+  return `Not listed, not counted: ${parts.join(' · ')}.`;
+}
+
 export function varianceTone(value: string | number | null | undefined, kind: 'charge' | 'discount' = 'charge'): string {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount === 0) return '';

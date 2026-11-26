@@ -21,7 +21,7 @@ import { isExtra, isPdf, VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
 import { ChargeTable, DiscountTable } from './DealTab';
 import { LoanDisbursementDialog } from './DealControls';
-import { CONTROL_STATUS, eventLabel, figuresNotReadLines, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { CONTROL_STATUS, countedReceipts, eventLabel, figuresNotReadLines, money, notCountedLine, recordField, signedMoney, varianceTone } from './j360Format';
 import { matchLevelText } from '../matchLevel';
 
 const NOISE_KEYS = new Set(['label', 'source_kind', 'addon_type_code']);
@@ -187,29 +187,20 @@ function BankCell({ item }: { item: P2PaymentItem }) {
   );
 }
 
+/** Only counted receipts are listed (2026-11-26), so the cell says which kind. */
 function CountedCell({ item }: { item: P2PaymentItem }) {
-  if (item.counted && item.isLoanReceipt) return <span className="p2w-chip p2w-chip--success">Counted as the loan</span>;
-  if (item.counted) return <span className="p2w-chip p2w-chip--success">Counted</span>;
-  if (item.duplicateOf) {
-    return (
-      <span className="j360-cell">
-        <span className="p2w-chip p2w-chip--danger">Duplicate</span>
-        <small className="j360-bank__ref">{item.notCountedReason}</small>
-      </span>
-    );
-  }
-  return (
-    <span className="j360-cell">
-      <span className="p2w-chip p2w-chip--neutral">Not counted</span>
-      {item.notCountedReason ? <small className="j360-bank__ref">{item.notCountedReason}</small> : null}
-    </span>
-  );
+  if (item.isLoanReceipt) return <span className="p2w-chip p2w-chip--success">Counted as the loan</span>;
+  return <span className="p2w-chip p2w-chip--success">Counted</span>;
 }
 
-/** Every receipt and what it is worth (a duplicate counts once, a removed
- * document counts nothing), then the bank statement entries with the
- * receipt each credit stands for. */
+/** The receipts that are counted and what each is worth, then the bank
+ * statement entries with the receipt each credit stands for. A copy of a
+ * receipt, a removed document and another customer's receipt count nothing
+ * and are not listed: one line under the table says how many (product owner
+ * 2026-11-26: "lets show what is being counted"). */
 export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; journeyId: string }) {
+  const receipts = countedReceipts(payments.items);
+  const notListed = notCountedLine(payments.items);
   const bank = payments.bankStatement;
   const credits = bank ? bank.lines.filter((line) => line.credit !== null) : [];
   // A loan with no dealership receipt, from the Bank Approval Letter (2026-10-31).
@@ -231,7 +222,6 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
         {Object.entries(payments.byStage).map(([stage, amount]) => (
           <div key={stage}><dt>{humanizeKey(stage)} receipts</dt><dd>{money(amount)}</dd></div>
         ))}
-        {payments.duplicates ? <div className="is-due"><dt>Duplicate receipts</dt><dd>{payments.duplicates} not counted</dd></div> : null}
         {credits.length ? <div className={bank && bank.matched === credits.length ? 'is-clear' : ''}><dt>Bank credits matched</dt><dd>{bank?.matched ?? 0} of {credits.length}</dd></div> : null}
         {/* The dealership's bank statements (Data uploads, 2026-11-14): Bank verified once every bank receipt is found. */}
         {payments.bankVerification ? (
@@ -249,7 +239,7 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
           </div>
         ) : null}
       </dl>
-      {payments.items.length || letterLoan ? (
+      {receipts.length || letterLoan ? (
         <div className="j360-card j360-table-wrap">
           <table className="j360-table">
             <caption>Receipts</caption>
@@ -260,8 +250,8 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
               </tr>
             </thead>
             <tbody>
-              {payments.items.map((item) => (
-                <tr key={item.paymentId} className={item.duplicateOf ? 'is-flagged' : item.counted ? '' : 'is-muted'}>
+              {receipts.map((item) => (
+                <tr key={item.paymentId}>
                   <th scope="row">
                     {item.documentId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${item.documentId}`}>{item.receiptNumber || item.document || 'Receipt'}</Link>
                       : item.receiptNumber || 'Receipt'}
@@ -290,8 +280,9 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
             </tbody>
           </table>
           {letterLoan ? <p className="p2w-muted j360-footnote">* {letterLoan.note}</p> : null}
+          {notListed ? <p className="p2w-muted j360-footnote">{notListed}</p> : null}
         </div>
-      ) : <Empty>No payments recorded yet. Upload receipts or the customer ledger.</Empty>}
+      ) : <Empty>{notListed ? `No receipt is counted yet. ${notListed}` : 'No payments recorded yet. Upload receipts or the customer ledger.'}</Empty>}
       <section className="j360-card" aria-label="Bank statement">
         <div className="j360-card__head">
           <h3 className="j360-h3">Bank statement</h3>

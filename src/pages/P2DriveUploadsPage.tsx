@@ -32,18 +32,142 @@ import {
   type DriveListedFile,
   type DriveRun,
   type DriveTotals,
+  connectMyGoogle,
+  disconnectMyGoogle,
+  freeUpMyStorage,
+  getDriveFreeUp,
+  storageSize,
+  type DriveFreeUpList,
+  type DriveMyLink,
 } from '../services/audit-core/uc03DriveIntake';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import { selectOperationalProject } from '../features/uc03/projectContext';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type DriveView = 'runs' | 'waiting' | 'setup';
+type DriveView = 'runs' | 'waiting' | 'storage' | 'setup';
 const DRIVE_VIEWS: { key: DriveView; label: string }[] = [
   { key: 'runs', label: 'Runs' },
   { key: 'waiting', label: 'Waiting in Drive' },
+  { key: 'storage', label: 'Free up Google storage' },
   { key: 'setup', label: 'Folders & settings' },
 ];
+
+/**
+ * The PC's Drive uploads still in their own Google storage (product owner 2026-11-26): in a plain
+ * Google account a file uses the storage of whoever put it in Drive. Once the PC connects their
+ * Google account, Verigence moves each file it has taken to the JBR account -- the file stays in
+ * its folder -- after every run and when the PC presses "Free up my storage".
+ */
+function FreeUpList({ list, own }: { list: DriveFreeUpList; own: boolean }) {
+  const folders = new Map<string, DriveFreeUpList['items']>();
+  for (const item of list.items) {
+    const key = item.customerFolder ?? '';
+    folders.set(key, [...(folders.get(key) ?? []), item]);
+  }
+  return (
+    <div className="screen-stack">
+      <section className="p2du-tiles" aria-label="Google storage">
+        <div className={`p2du-tile${list.files ? ' p2du-tile--warn' : ' p2du-tile--ok'}`}>
+          <span>Ready to move to JBR</span>
+          <strong>{storageSize(list.bytes)}</strong>
+          <small>{plural(list.files, 'file')} taken by Verigence, still in {own ? 'your' : 'the PC’s'} storage</small>
+        </div>
+        <div className="p2du-tile">
+          <span>Not taken yet</span>
+          <strong>{storageSize(list.notYet.bytes)}</strong>
+          <small>{plural(list.notYet.files, 'file')} — moved after the run takes them</small>
+        </div>
+        <div className="p2du-tile">
+          <span>Last checked</span>
+          <strong>{list.lastCheckedAtUtc ? when(list.lastCheckedAtUtc) : '—'}</strong>
+          <small>{list.googleEmail ?? 'No Google account on record'}</small>
+        </div>
+      </section>
+      {list.files ? (
+        <div className="p2du-scroll">
+          <table className="p2du-table p2du-table--stack">
+            <thead><tr><th>Customer folder</th><th>Files still in {own ? 'your' : 'the PC’s'} storage</th><th className="num">Size</th></tr></thead>
+            <tbody>
+              {[...folders.entries()].map(([folder, items]) => (
+                <tr key={folder}>
+                  <td data-label="Customer folder"><strong>{folder || 'Files in no customer folder'}</strong></td>
+                  <td data-label="Files">
+                    {items.map((item) => (
+                      <div key={item.url}>
+                        <a className="p2w-link" href={item.url} target="_blank" rel="noreferrer">{item.fileName}</a>
+                        <small className="p2w-muted"> · {storageSize(item.bytes)}{item.kind === 'PHOTO' ? ' · photo' : ''}</small>
+                      </div>
+                    ))}
+                  </td>
+                  <td className="num" data-label="Size">{storageSize(items.reduce((n, i) => n + i.bytes, 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="p2w-empty">Nothing of {own ? 'yours' : 'the PC’s'} is left to move: Verigence’s files are all in the JBR account.</p>}
+    </div>
+  );
+}
+
+/** The PC's own Google account: connect it once, then free up the storage from here. */
+function MyGoogleAccount({ link, busy, freeing, onConnect, onFreeUp, onDisconnect }: {
+  link: DriveMyLink; busy: boolean; freeing: string | null; onConnect: () => void; onFreeUp: () => void; onDisconnect: () => void;
+}) {
+  const linked = link.status === 'LINKED';
+  return (
+    <div className="p2bu-result">
+      <p><strong>Your Google storage</strong>
+        {linked && link.googleEmail ? <span className="p2w-muted"> · connected as {link.googleEmail}</span> : null}
+      </p>
+      {linked ? (
+        <>
+          <p className="p2w-muted">
+            Moved to the JBR account so far: <strong>{plural(link.handedOver.files, 'file')} ({storageSize(link.handedOver.bytes)})</strong>.
+            The files stay in the same Drive folders; they no longer use your storage. This also happens by itself after every Drive run.
+          </p>
+          {link.otherAccount ? (
+            <div className="p2w-alert p2w-alert--error" role="alert">
+              Your Drive folders are shared with {link.otherAccount}, but you connected {link.googleEmail}. Files you upload
+              with {link.otherAccount} cannot be moved: connect that account instead.
+            </div>
+          ) : null}
+          {freeing ? <p className="p2bu-notice" role="status">{freeing}</p> : null}
+          <div className="p2bu-actions">
+            <button type="button" className="p2w-button p2w-button--primary" disabled={busy} onClick={onFreeUp}>
+              Free up my storage now
+            </button>
+            <button type="button" className="p2w-button p2w-button--ghost" disabled={busy} onClick={onDisconnect}>
+              Disconnect
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {link.status === 'LOST' ? (
+            <div className="p2w-alert p2w-alert--error" role="alert">
+              Google no longer accepts your approval (it was taken back or has lapsed). Connect your Google account again.
+            </div>
+          ) : null}
+          <p className="p2w-muted">
+            Files you put in Drive use your own Google storage. Connect your Google account once, and Verigence moves every
+            file it has taken to the JBR account: the files stay in the same folders, and your storage is freed. Nothing is deleted.
+          </p>
+          <p className="p2w-muted">
+            Google opens its own sign-in. It may say “Google hasn’t verified this app”: tap <strong>Advanced</strong>, then
+            {' '}<strong>Go to Verigence</strong>, and allow. Verigence only moves the files it has taken from the Project’s folders.
+          </p>
+          <div className="p2bu-actions">
+            <button type="button" className="p2w-button p2w-button--primary" disabled={busy} onClick={onConnect}>
+              Connect my Google account
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function when(value: string | null): string {
   if (!value) return '';
@@ -453,13 +577,20 @@ export default function P2DriveUploadsPage() {
     enabled: enabled && connected, refetchInterval: 60_000,
   });
 
+  const [freeUpPc, setFreeUpPc] = useState<string>('');
+  const freeUp = useQuery({
+    queryKey: ['p2-drive-free-up', tenantId, freeUpPc],
+    queryFn: () => getDriveFreeUp(tenantId!, accessToken, freeUpPc || null),
+    enabled: enabled && connected && params.get('view') === 'storage',
+  });
+
   async function act(work: () => Promise<string | null>) {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       setNotice(await work());
-      await Promise.all(['p2-drive-connection', 'p2-drive-runs', 'p2-drive-waiting'].map(
+      await Promise.all(['p2-drive-connection', 'p2-drive-runs', 'p2-drive-waiting', 'p2-drive-free-up'].map(
         (key) => queryClient.invalidateQueries({ queryKey: [key, tenantId] })));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'That could not be done.');
@@ -488,6 +619,33 @@ export default function P2DriveUploadsPage() {
     return shared
       ? `Shared with ${access.googleEmail}. Google has emailed you the link; the folders are also listed here.`
       : 'Google could not share the folders just now. Try again in a few minutes.';
+  });
+  const [freeing, setFreeing] = useState<string | null>(null);
+  const connectGoogle = () => act(async () => {
+    const { authUrl } = await connectMyGoogle(tenantId!, accessToken);
+    window.location.assign(authUrl);
+    return null;
+  });
+  const disconnectGoogle = () => act(async () => {
+    await disconnectMyGoogle(tenantId!, accessToken);
+    return 'Your Google account is disconnected. Files already moved stay in the JBR account.';
+  });
+  // A batch a call, until nothing taken is left in the PC's storage.
+  const freeUpNow = () => act(async () => {
+    let files = 0;
+    let bytes = 0;
+    for (let round = 0; round < 40; round += 1) {
+      const done = await freeUpMyStorage(tenantId!, accessToken);
+      files += done.handedOver;
+      bytes += done.bytes;
+      setFreeing(`Moving to the JBR account… ${plural(files, 'file')} (${storageSize(bytes)}) so far.`);
+      if (done.lost) throw new Error('Google no longer accepts your approval. Connect your Google account again.');
+      if (!done.left || !done.handedOver) break;
+    }
+    setFreeing(null);
+    return files
+      ? `Done: ${plural(files, 'file')} (${storageSize(bytes)}) moved to the JBR account. Google may take a day or two to show the freed space.`
+      : 'Nothing to move right now: every file Verigence has taken is already in the JBR account.';
   });
   const saveSettings = (settings: Parameters<typeof setDriveSettings>[1]) => act(async () => {
     await setDriveSettings(tenantId!, settings, accessToken);
@@ -689,6 +847,44 @@ export default function P2DriveUploadsPage() {
                 {waiting.data && !waitingFiles.length ? <p className="p2w-empty">Nothing is waiting to be taken.</p> : null}
                 {waitingFiles.length ? <WaitingTable files={waitingFiles} /> : null}
               </>
+            ) : null}
+
+            {view === 'storage' ? (
+              <div className="screen-stack">
+                {freeUp.isLoading ? <p className="p2w-muted">Loading…</p> : null}
+                {freeUp.isError ? <div className="p2w-alert p2w-alert--error" role="alert">The list could not be loaded. Try again.</div> : null}
+                {freeUp.data ? (
+                  <>
+                    {freeUp.data.pcs ? (
+                      <div className="p2du-toolbar">
+                        <label htmlFor="p2dr-free-pc">PC
+                          <select id="p2dr-free-pc" value={freeUpPc} onChange={(e) => setFreeUpPc(e.target.value)}>
+                            <option value="">My own files</option>
+                            {freeUp.data.pcs.filter((p) => p.actorId).map((p) => (
+                              <option key={p.actorId!} value={p.actorId!}>
+                                {p.name ?? p.googleEmail} · {storageSize(p.bytes)} still in their storage
+                                {p.linkStatus === 'LINKED' ? '' : ' · not connected'}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    ) : null}
+                    {freeUpPc && freeUp.data.pc ? <FreeUpList list={freeUp.data.pc} own={false} /> : (
+                      <>
+                        {freeUp.data.myLink ? (
+                          <MyGoogleAccount link={freeUp.data.myLink} busy={busy} freeing={freeing}
+                            onConnect={() => void connectGoogle()} onFreeUp={() => void freeUpNow()}
+                            onDisconnect={() => void disconnectGoogle()} />
+                        ) : null}
+                        {freeUp.data.mine.googleEmail || !freeUp.data.pcs ? <FreeUpList list={freeUp.data.mine} own /> : (
+                          <p className="p2w-muted">Choose a PC to see the files they can delete from their Google Drive.</p>
+                        )}
+                      </>
+                    )}
+                  </>
+                ) : null}
+              </div>
             ) : null}
 
             {view === 'setup' ? (

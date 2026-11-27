@@ -11,7 +11,9 @@ import SetDealTypeDialog from '../features/uc03-p2/tasks/SetDealTypeDialog';
 import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
 import ClosureDecisionPanel from '../features/uc03-p2/review/ClosureDecisionPanel';
 import type { ClosureItem } from '../services/audit-core/reviewerClosure';
-import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE, TEMPORARY_REGISTRATION_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
+import {
+  canDecideClaim, claimState, NO_PHOTOS_CHOICE, NO_PHOTOS_REASON_LENGTH, NOT_REQUIRED_CHOICE, TEMPORARY_REGISTRATION_CHOICE,
+} from '../features/uc03-p2/tasks/p2TaskPlan';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
 import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
@@ -134,6 +136,8 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
             : 'Sent to the Reviewer with your reason. The task closes if they accept; if not, it comes back to you.')
         : action.action === 'CLOSE_TASK' && action.details?.requirementKey
           ? 'Answer recorded. The task now lists only what is still missing, and closes itself when nothing is.'
+        : action.action === 'CLOSE_TASK' && action.details?.choice === NO_PHOTOS_CHOICE
+          ? 'Task closed without photos. Your reason is kept on the task.'
         : action.action === 'CLOSE_TASK' ? 'Task closed.'
         : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
@@ -154,6 +158,11 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   });
 
   const trigger = (action: TaskAction) => {
+    if (action.action === 'CLOSE_TASK' && action.details?.choice === NO_PHOTOS_CHOICE
+        && comment.trim().length < NO_PHOTOS_REASON_LENGTH) {
+      setError(`Write in the comment box why there are no pictures of the car (at least ${NO_PHOTOS_REASON_LENGTH} characters).`);
+      return;
+    }
     if (action.requiresComment && !comment.trim()) {
       setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.'
         : action.action === 'CLOSE_TASK' && action.details?.choice === NOT_REQUIRED_CHOICE

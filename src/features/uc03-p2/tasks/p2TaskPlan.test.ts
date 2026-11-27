@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import type { P2Task } from '../../../services/audit-core/uc03P2';
-import { canDecideClaim, claimState, documentLines, NOT_REQUIRED_CHOICE, taskPlan } from './p2TaskPlan';
+import {
+  canDecideClaim, claimState, CLOSE_WITHOUT_PHOTOS_LABEL, documentLines, NO_PHOTOS_CHOICE, NOT_REQUIRED_CHOICE, taskPlan,
+} from './p2TaskPlan';
 
 const finding = (assigned: string): P2Task => ({
   task_id: 't1', journey_id: 'j1', task_type: 'FINDING_REVIEW', task_status: 'READY', severity: 'MEDIUM', title: 'Finding',
@@ -128,5 +130,25 @@ describe('one missing-documents task per journey, answered per document (product
     expect(taskPlan(one, 'PC').secondary.some((a) => a.action === 'CLOSE_TASK')).toBe(false);
     expect(documentLines({ ...missing(), reference: { requirementKey: 'rto_challan' } } as P2Task, 'PC')).toBeUndefined();
     expect(documentLines({ ...one, task_status: 'VERIFIED_COMPLETE' }, 'PC')).toEqual([]);
+  });
+});
+
+describe('the pictures of the car: always asked, closed without them with a reason (product owner 2026-11-27)', () => {
+  // A task opened before the change: its stored actions do not list CLOSE_TASK.
+  const photos = {
+    task_id: 't9', journey_id: 'j1', task_type: 'DELIVERY_VEHICLE_PHOTOS_MISSING', task_status: 'READY', severity: 'HIGH',
+    title: 'Add pictures of the car, or enter the VIN / engine number', source_system: 'P2', reference: {},
+    assigned_role_code: 'PC', created_at_utc: '2026-11-27T00:00:00Z',
+    allowed_actions: ['ADD_EVIDENCE', 'PROVIDE_VEHICLE_ID', 'ADD_COMMENT'],
+  } as unknown as P2Task;
+
+  it('offers the photos, the VIN entry and a close that needs a reason', () => {
+    const plan = taskPlan(photos, 'PC');
+    expect(plan.primary?.label).toBe('Add car photos');
+    expect(plan.vehicleId).toBe(true);
+    const close = plan.secondary.find((a) => a.label === CLOSE_WITHOUT_PHOTOS_LABEL);
+    expect(close).toMatchObject({ action: 'CLOSE_TASK', requiresComment: true, details: { choice: NO_PHOTOS_CHOICE } });
+    // No canned comment: the reason is the PC's own words.
+    expect(close?.comment).toBeUndefined();
   });
 });

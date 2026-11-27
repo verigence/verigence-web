@@ -66,6 +66,14 @@ export function canEscalate(task: P2Task, operatingRole?: string | null): boolea
   return task.task_status === 'RETURNED' || NAME_TASK_SOURCES.has(String(task.source_code ?? ''));
 }
 export const TEMPORARY_REGISTRATION_CHOICE = 'Temporary registration';
+/**
+ * The pictures of the car (product owner 2026-11-27): the task is always
+ * raised, and the PC may close it without pictures with a proper reason. The
+ * server refuses a reason shorter than this.
+ */
+export const CLOSE_WITHOUT_PHOTOS_LABEL = 'Close without photos';
+export const NO_PHOTOS_CHOICE = 'No pictures of the car';
+export const NO_PHOTOS_REASON_LENGTH = 10;
 export const BH_CHOICES = ['BH registration', 'Not a BH registration'] as const;
 const DEALER_NOT_PROVIDED_DOCUMENTS = new Set(['ew_invoice', 'rsa_invoice']);
 const TEMPORARY_REGISTRATION_DOCUMENTS = new Set(['rto_challan']);
@@ -308,10 +316,18 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   }
   if (allowed.has('PROVIDE_VEHICLE_ID')) {
     // No pictures of the car: upload them, or enter the VIN / engine number
-    // in the form under the description (TaskDetail).
+    // in the form under the description (TaskDetail). The task has to be
+    // there, and the PC may close it without pictures with a proper reason
+    // (product owner 2026-11-27). The server accepts CLOSE_TASK on this task
+    // whatever the row's stored allowed_actions say, so it is offered on the
+    // tasks already open too.
     return {
       primary: { label: 'Add car photos', to: `/p2/journeys/${task.journey_id}/documents?tab=photos`, tone: 'primary' },
-      secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [],
+      secondary: [
+        { label: CLOSE_WITHOUT_PHOTOS_LABEL, action: 'CLOSE_TASK', requiresComment: true,
+          details: { choice: NO_PHOTOS_CHOICE }, tone: 'secondary' },
+        ...(canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+      ],
       vehicleId: true,
     };
   }

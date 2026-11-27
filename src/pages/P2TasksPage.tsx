@@ -36,6 +36,7 @@ import {
   type P2Task, type P2TaskTab,
 } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
+import { staleTaskMessage } from '../features/uc03-p2/tasks/staleTask';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
@@ -154,7 +155,15 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
             ? 'Sent for re-check. The task closes itself once the check passes.'
             : 'Done.');
     },
-    onError: (cause) => setError(errorText(cause)),
+    onError: (cause) => {
+      const stale = staleTaskMessage(cause);
+      if (!stale) { setError(errorText(cause)); return; }
+      // The task moved on: reload it and the list so the card shows where it stands now.
+      setError(undefined);
+      void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
+      onDone(stale);
+    },
   });
 
   const trigger = (action: TaskAction) => {

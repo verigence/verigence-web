@@ -78,9 +78,17 @@ describe('Bookings only / Deliveries only', () => {
   });
 
   it('says which dates it reads', () => {
-    expect(kindHint('booking', '2026-11')).toBe('Bookings only: booking date in November 2026.');
+    expect(kindHint('booking', '2026-11')).toBe('Bookings only: booking date in November 2026, not yet a delivery.');
     expect(kindHint('delivery', '2026-11')).toBe('Deliveries only: delivery date (started or delivered) in November 2026.');
     expect(kindHint('delivery', '')).toBe('Deliveries only: delivery started or delivered.');
+  });
+
+  it('shows a booking that became a delivery under the deliveries only (2026-11-26)', () => {
+    const source = readFileSync(join(__dirname, '..', 'JourneyListTabs.tsx'), 'utf8');
+    expect(source).toContain('detail="Booked this month, not yet a delivery"');
+    expect(source).toContain('value={all.converted_in_month}');
+    expect(source).toContain('detail="Delivery file closed, or booking cancelled"');
+    expect(source).not.toContain('Delivered or cancelled');
   });
 
   it('is one filter beside the tabs, offered to supervisors', () => {

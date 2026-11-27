@@ -34,7 +34,7 @@ const PC_TABS: { view: P2JourneyView; label: string; hint: string }[] = [
   { view: 'needs_action', label: 'Needs my action', hint: 'Open journeys with a PC task, oldest due first.' },
   { view: 'processing', label: 'Processing', hint: 'Pages still being read or retried: nothing for you to do yet.' },
   { view: 'with_tl', label: 'With TL', hint: 'Waiting on a TL decision.' },
-  { view: 'closed', label: 'Closed', hint: 'Delivered or cancelled.' },
+  { view: 'closed', label: 'Closed', hint: 'Delivery file closed, or booking cancelled.' },
   { view: 'all', label: 'All', hint: 'Every journey in your outlets.' },
 ];
 const TL_TABS: { view: P2JourneyView; label: string; hint: string }[] = [
@@ -43,7 +43,7 @@ const TL_TABS: { view: P2JourneyView; label: string; hint: string }[] = [
   { view: 'overdue', label: 'Overdue', hint: 'A task past its due time.' },
   { view: 'stuck', label: 'Stuck', hint: 'A page failed to process or a scan was rejected and not re-uploaded.' },
   { view: 'all', label: 'All', hint: 'Every journey in your scope.' },
-  { view: 'closed', label: 'Closed', hint: 'Delivered or cancelled.' },
+  { view: 'closed', label: 'Closed', hint: 'Delivery file closed, or booking cancelled.' },
 ];
 
 const SEARCH_PLACEHOLDER = 'Customer name, mobile number, vehicle, outlet or Journey ID';
@@ -247,23 +247,28 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
           </label>
           <span className="p2w-muted">
             {month
-              ? `${monthLabel(month)}: bookings by their booking date, deliveries by their delivery date (India time).`
+              ? `${monthLabel(month)}: a booking counts by its booking date until it is a delivery, and from then as a delivery by its delivery date (India time).`
               : 'Every journey, whatever its month.'}
           </span>
         </div>
       ) : null}
       {supervisor && all && calendarMonth && month ? (
         <section className="uc03-tl-metrics" aria-label="This month">
-          <Metric label={`Bookings in ${monthLabel(month)}`} value={all.bookings_in_month ?? 0} detail="By booking date" />
-          <Metric label={`Deliveries in ${monthLabel(month)}`} value={all.deliveries_in_month ?? 0} detail="By delivery date" />
+          <Metric label={`Bookings in ${monthLabel(month)}`} value={all.bookings_in_month ?? 0} detail="Booked this month, not yet a delivery" />
+          <Metric label={`Deliveries in ${monthLabel(month)}`} value={all.deliveries_in_month ?? 0} detail="By delivery date, whenever booked" />
+          {/* The DMS booking dump lists every booking made in the month, delivered or not: this is
+              the part of it that is already under the deliveries (product owner 2026-11-26). */}
+          {all.converted_in_month != null ? (
+            <Metric label="Booked and delivered" value={all.converted_in_month} detail={`Booked in ${monthLabel(month)}; counted in its deliveries`} />
+          ) : null}
         </section>
       ) : null}
       {supervisor && all ? (
         <section className="uc03-tl-metrics" aria-label="Summary">
           <Metric label="All journeys" value={all.all} detail={`${all.open} open`} />
-          <Metric label="Bookings open" value={all.booking_open} detail="Booking documents and checks" />
-          <Metric label="Deliveries open" value={all.delivery_open} detail="Delivery work underway" />
-          <Metric label="Closed" value={all.closed} detail="Delivered or cancelled" />
+          <Metric label="Bookings open" value={all.booking_open} detail="Not yet a delivery" />
+          <Metric label="Deliveries open" value={all.delivery_open} detail="Delivery file not yet closed" />
+          <Metric label="Closed" value={all.closed} detail="Delivery file closed, or booking cancelled" />
           <Metric label="Needs TL decision" value={all.needs_tl} detail={`${all.overdue} overdue · ${all.high_risk} high risk`} />
         </section>
       ) : null}

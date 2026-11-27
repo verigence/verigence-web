@@ -525,6 +525,11 @@
     grid-column: 1 / -1;
   }
 
+  /* The month's three cards (bookings, deliveries, booked and delivered): the 3rd fills its row. */
+  .uc03-tl-metrics > :last-child:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
   .uc03-tl-breakdown-grid {
     grid-template-columns: 1fr;
   }

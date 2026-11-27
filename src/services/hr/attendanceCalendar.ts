@@ -74,6 +74,49 @@ export interface MonthStats {
   note: string | null;
 }
 
+/**
+ * A caution day (bad weather, a cyclone, a strike; 21 Nov 2026) as it applies to one person:
+ * OFF: the caution day, taken off (voluntary leave). WORKED: the caution day, worked.
+ * IN_LIEU: the Sunday that stays off because the caution day was worked.
+ * SUNDAY_WORK: the Sunday to work because the caution day was taken off.
+ */
+export interface CautionInfo {
+  status: 'OFF' | 'WORKED' | 'IN_LIEU' | 'SUNDAY_WORK';
+  reason: string;
+  /** The caution day (YYYY-MM-DD). */
+  cautionDate: string;
+}
+
+/** One person's month in numbers (21 Nov 2026). Half days count as 0.5. */
+export interface AttendanceSummaryRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  projects: Array<{ projectCode: string; projectName: string | null }>;
+  workingDays: number;
+  workingDaysSoFar: number;
+  presentDays: number;
+  absentDays: number;
+  leaveAppliedDays: number;
+  leaveTakenDays: number;
+  paidLeaveDays: number;
+  unpaidLeaveDays: number;
+  cautionDaysOff: number;
+  cautionDaysWorked: number;
+  sundaysOffInLieu: number;
+  offDaysWorked: number;
+  minutes: number;
+  averageMinutesPerDayPresent: number;
+}
+
+export interface TeamSummary {
+  month: string;
+  employees: number;
+  totals: Partial<Record<keyof AttendanceSummaryRow, number>>;
+  projects: Array<{ projectCode: string; projectName: string | null }>;
+  people: AttendanceSummaryRow[];
+}
+
 export interface CalendarDay {
   /** YYYY-MM-DD */
   date: string;
@@ -83,8 +126,13 @@ export interface CalendarDay {
   holiday: string | null;
   /** A half-day holiday of this person on a working day. Absent from services before 7 Nov 2026. */
   halfDayHoliday?: HalfDayHoliday | null;
-  /** A Sunday made a working day for this person. Absent from older services. */
-  workingSunday?: { name: string } | null;
+  /**
+   * A Sunday made a working day for this person. Absent from older services. `inPlaceOf`: the
+   * caution day it stands in for (21 Nov 2026).
+   */
+  workingSunday?: { name: string; inPlaceOf?: string | null } | null;
+  /** A caution day or the Sunday that goes with it, as it applies to this person (21 Nov 2026). */
+  caution?: CautionInfo | null;
   checkInAt: string | null;
   checkOutAt: string | null;
   /** Check-out minus check-in, for a day with both. */
@@ -315,6 +363,16 @@ export const getTeamDaily = (token: string, date?: string, projectCode?: string)
 
 export const getTeamWeekly = (token: string, date?: string, projectCode?: string) =>
   hrRequest<TeamWeekly>(`${base}/attendance/team-weekly${query({ date, projectCode })}`, { accessToken: token });
+
+/** Every employee: their own month in numbers. */
+export const getMySummary = (token: string, month?: string) =>
+  hrRequest<{ month: string; employee: AttendanceSummaryRow }>(`${base}/attendance/summary/me${query({ month })}`, {
+    accessToken: token,
+  });
+
+/** Team Lead, Project Manager, Executive (their projects), HR, the CEO and SuperAdmin (everyone). */
+export const getTeamSummary = (token: string, month?: string, projectCode?: string) =>
+  hrRequest<TeamSummary>(`${base}/attendance/summary/team${query({ month, projectCode })}`, { accessToken: token });
 
 export const raiseCorrection = (
   token: string,
